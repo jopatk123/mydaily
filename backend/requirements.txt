@@ -2,3 +2,11 @@ fastapi
 uvicorn
 sqlmodel
 pydantic
+
+# Dev dependencies (optional for local development)
+# pytest
+# pytest-cov
+# httpx
+# black
+# isort
+# flake8

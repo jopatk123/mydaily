@@ -3,7 +3,8 @@ import { Plus, Trash2, Calendar, Book, PenTool, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
-const API_URL = 'http://localhost:8000';
+// 使用相对路径，适配单体部署
+const API_URL = '';
 
 function App() {
   const [entries, setEntries] = useState([]);

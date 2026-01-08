@@ -1,13 +1,13 @@
-version: '3.8'
-
 services:
   mydaily:
     container_name: mydaily
     build: .
     ports:
       - "5555:8000"
-    volumes:
-      - ./backend:/app
-      - ./frontend:/frontend
     environment:
       - PYTHONUNBUFFERED=1
+    volumes:
+      - mydaily-db:/app/data
+
+volumes:
+  mydaily-db:

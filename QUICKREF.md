@@ -36,9 +36,8 @@ make clean               # 清理文件
 
 ## 🌐 访问地址
 
-- 前端: http://localhost:5173
-- 后端: http://localhost:8000
-- API 文档: http://localhost:8000/docs
+- 应用（前端+后端）: http://localhost:5555
+- API 文档: http://localhost:5555/docs
 
 ## 📝 脚本说明
 
@@ -79,8 +78,8 @@ make clean               # 清理文件
 ## 🐛 常见问题
 
 **端口被占用？**
-- 后端默认 8000，前端默认 5173
-- 修改配置文件或杀掉占用进程
+- 应用默认端口 5555
+- 修改 docker-compose.yml 配置文件或杀掉占用进程
 
 **依赖安装失败？**
 ```bash

@@ -21,7 +21,7 @@ docker-compose up --build
 make dev-local          # 启动开发服务器
 ```
 
-访问 http://localhost:5173 即可使用应用。
+访问 http://localhost:5555 即可使用应用。
 
 > 💡 **提示：** 查看 [快速参考](QUICKREF.md) 获取所有命令的快速指南。
 
@@ -112,9 +112,8 @@ cd frontend && npm run dev
 
 ### 访问应用
 
-- **前端界面：** http://localhost:5173
-- **后端 API：** http://localhost:8000
-- **API 文档：** http://localhost:8000/docs
+- **应用界面（前端+后端）：** http://localhost:5555
+- **API 文档：** http://localhost:5555/docs
 
 ## 配置
 
@@ -126,8 +125,7 @@ cp .env.example .env
 ```
 
 主要配置项：
-- `BACKEND_PORT`: 后端服务器端口（默认 8000）
-- `VITE_API_URL`: 前端 API 地址
+- `APP_PORT`: 应用服务器端口（默认 5555）
 - `DATABASE_URL`: 数据库连接字符串
 
 ## 开发指南
@@ -185,8 +183,7 @@ mydaily/
 │   ├── models.py         # 数据模型
 │   ├── database.py       # 数据库配置
 │   ├── test_main.py      # 测试文件
-│   ├── requirements.txt  # Python 依赖
-│   └── Dockerfile        # 后端 Docker 配置
+│   └── requirements.txt  # Python 依赖
 ├── frontend/             # React 前端
 │   ├── src/
 │   │   ├── App.jsx       # 主应用组件
@@ -195,8 +192,7 @@ mydaily/
 │   │   ├── pages/        # 页面组件
 │   │   └── test/         # 测试文件
 │   ├── package.json      # Node.js 依赖
-│   ├── vite.config.js    # Vite 配置
-│   └── Dockerfile        # 前端 Docker 配置
+│   └── vite.config.js    # Vite 配置
 ├── scripts/              # 开发脚本
 │   ├── setup.sh          # 项目初始化
 │   ├── dev-local.sh      # 本地开发（前后端）
@@ -252,6 +248,7 @@ mydaily/
 │   │   ├── App.jsx       # 主组件
 │   │   └── test/         # 前端测试代码
 │   └── package.json
+├── Dockerfile            # 单体部署 Docker 配置
 ├── docker-compose.yml    # Docker Compose 配置文件
 ├── Makefile              # 自动化命令配置文件
 └── README.md             # 项目说明文档

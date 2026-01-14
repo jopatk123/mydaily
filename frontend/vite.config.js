@@ -7,6 +7,12 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    proxy: {
+      '/entries': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
     watch: {
       usePolling: true
     }

@@ -4,9 +4,9 @@ sqlmodel
 pydantic
 
 # Dev dependencies (optional for local development)
-# pytest
+pytest
 # pytest-cov
-# httpx
+httpx
 # black
 # isort
 # flake8

@@ -3,10 +3,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 from typing import List
+from datetime import date as dt_date
 from database import create_db_and_tables, get_session
 from models import DiaryEntry
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
+from sqlalchemy import or_
+from sqlalchemy import func
 
 app = FastAPI()
 
@@ -38,9 +41,60 @@ def create_entry(entry: DiaryEntry, session: Session = Depends(get_session)):
     return entry
 
 @app.get("/entries/", response_model=List[DiaryEntry])
-def read_entries(offset: int = 0, limit: int = 100, session: Session = Depends(get_session)):
-    entries = session.exec(select(DiaryEntry).offset(offset).limit(limit).order_by(DiaryEntry.created_at.desc())).all()
-    return entries
+def read_entries(
+    offset: int = 0,
+    limit: int = 100,
+    date: str | None = None,
+    session: Session = Depends(get_session),
+):
+    stmt = select(DiaryEntry)
+
+    if date:
+        try:
+            filter_day = dt_date.fromisoformat(date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        stmt = stmt.where(func.date(DiaryEntry.created_at) == filter_day.isoformat())
+
+    stmt = stmt.offset(offset).limit(limit).order_by(DiaryEntry.created_at.desc())
+    return session.exec(stmt).all()
+
+
+@app.get("/entries/dates/", response_model=List[str])
+def read_entry_dates(session: Session = Depends(get_session)):
+    created_at_values = session.exec(select(DiaryEntry.created_at)).all()
+    dates = sorted({dt.date().isoformat() for dt in created_at_values if dt is not None})
+    return dates
+
+
+@app.get("/entries/search/", response_model=List[DiaryEntry])
+def search_entries(
+    q: str,
+    offset: int = 0,
+    limit: int = 100,
+    date: str | None = None,
+    session: Session = Depends(get_session),
+):
+    query = q.strip()
+    if not query:
+        return []
+
+    stmt = select(DiaryEntry).where(
+        or_(
+            DiaryEntry.title.ilike(f"%{query}%"),
+            DiaryEntry.content.ilike(f"%{query}%"),
+        )
+    )
+
+    if date:
+        try:
+            filter_day = dt_date.fromisoformat(date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        stmt = stmt.where(func.date(DiaryEntry.created_at) == filter_day.isoformat())
+
+    stmt = stmt.offset(offset).limit(limit).order_by(DiaryEntry.created_at.desc())
+    return session.exec(stmt).all()
 
 @app.get("/entries/{entry_id}", response_model=DiaryEntry)
 def read_entry(entry_id: int, session: Session = Depends(get_session)):

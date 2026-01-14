@@ -132,12 +132,13 @@ function App() {
     }
   };
 
+
   const renderCalendar = () => {
     const monthStart = startOfMonth(calendarMonth);
     const monthEnd = endOfMonth(calendarMonth);
     const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
     const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-
+    // ... Calendar code remains same ...
     const days = [];
     let day = gridStart;
     while (day <= gridEnd) {
@@ -234,16 +235,33 @@ function App() {
       </div>
     );
   };
+  
+  // Skeleton Loader Component
+  const EntrySkeleton = () => (
+    <div className="bg-white rounded-2xl border border-gray-100 p-6 sm:px-8 py-6 shadow-sm animate-pulse space-y-4">
+      <div className="flex justify-between items-start">
+        <div className="space-y-2 w-3/4">
+          <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+          <div className="h-4 bg-gray-100 rounded w-1/4"></div>
+        </div>
+      </div>
+      <div className="space-y-2 pt-2">
+        <div className="h-4 bg-gray-100 rounded w-full"></div>
+        <div className="h-4 bg-gray-100 rounded w-full"></div>
+        <div className="h-4 bg-gray-100 rounded w-2/3"></div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] py-12 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-[#f8f9fa] py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col lg:flex-row gap-8">
-          <aside className="lg:w-80 flex-shrink-0 space-y-6">
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+          <aside className="lg:w-80 flex-shrink-0 space-y-6 lg:sticky lg:top-8 z-10">
             {renderCalendar()}
           </aside>
 
-          <main className="flex-1">
+          <main className="flex-1 w-full min-w-0">
             <header className="flex justify-between items-center mb-8 border-b border-gray-200 pb-6">
               <div className="flex items-center space-x-3">
                 <div className="bg-indigo-600 p-2 rounded-lg shadow-lg">
@@ -256,7 +274,7 @@ function App() {
               </div>
               <button
                 onClick={() => setIsCreating(!isCreating)}
-                className={`inline-flex items-center px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                className={`hidden lg:inline-flex items-center px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                   isCreating 
                     ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500' 
                     : 'text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
@@ -269,6 +287,7 @@ function App() {
                 )}
               </button>
             </header>
+
 
             <form onSubmit={handleSearch} className="mb-8">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
@@ -374,11 +393,15 @@ function App() {
               </div>
             )}
 
+
             <div className="space-y-8">
               {isLoadingEntries && (
-                <div className="text-sm text-gray-400 font-medium">正在加载...</div>
+                 <div className="space-y-6">
+                   <EntrySkeleton />
+                   <EntrySkeleton /> 
+                 </div>
               )}
-              {entries.length > 0 ? (
+              {!isLoadingEntries && entries.length > 0 ? (
                 entries.map((entry) => (
                   <article key={entry.id} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
                     <div className="p-6 sm:px-8 py-6">
@@ -392,12 +415,13 @@ function App() {
                         </div>
                         <button
                           onClick={() => handleDelete(entry.id)}
-                          className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200"
+                          className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
                           title="删除日记"
                         >
                           <Trash2 className="h-5 w-5" />
                         </button>
                       </div>
+
                       <div className="mt-5">
                         <div className="prose prose-sm prose-indigo max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap font-medium">
                           {entry.content}
@@ -406,7 +430,7 @@ function App() {
                     </div>
                   </article>
                 ))
-              ) : !isCreating && (
+              ) : !isLoadingEntries && !isCreating && (
                 <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200 shadow-inner">
                   <div className="inline-flex items-center justify-center p-4 bg-indigo-50 rounded-full mb-4">
                     <PenTool className="h-8 w-8 text-indigo-300" />
@@ -431,6 +455,18 @@ function App() {
             <footer className="mt-20 text-center text-gray-400 text-sm pb-10">
               <p>© {new Date().getFullYear()} MyDaily · 记录生活每一刻</p>
             </footer>
+
+            {/* Mobile Floating Action Button */}
+            <button
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                setIsCreating(true);
+              }}
+              className="lg:hidden fixed bottom-6 right-6 p-4 rounded-full bg-indigo-600 text-white shadow-xl hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all z-50 active:scale-95"
+              aria-label="新建日记"
+            >
+              <Plus className="h-6 w-6" />
+            </button>
           </main>
         </div>
       </div>

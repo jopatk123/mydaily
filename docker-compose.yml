@@ -1,13 +1,20 @@
 services:
   mydaily:
-    container_name: mydaily
-    build: .
+    container_name: mydaily          # 容器运行后的名称
+    build: .                         # 从当前目录Dockerfile构建镜像
+    image: mydaily:latest              # ✅ 手动指定镜像的仓库名+标签，核心配置
     ports:
       - "5555:8000"
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
       - mydaily-db:/app/data
+    restart: always                  # 容器崩溃自动重启，高可用
+    networks:
+      - mydaily-net
 
 volumes:
   mydaily-db:
+
+networks:
+  mydaily-net:

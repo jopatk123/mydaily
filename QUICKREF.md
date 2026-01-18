@@ -93,6 +93,10 @@ make docker-down
 make docker-up
 ```
 
+**登录密码是什么？**
+- 默认密码：`asd123123123`
+- 可通过 `.env` 设置 `VITE_APP_PASSWORD` 覆盖
+
 ## 📚 更多文档
 
 - [README.md](README.md) - 项目概览

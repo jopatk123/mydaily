@@ -4,8 +4,9 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 from typing import List
 from datetime import date as dt_date
+from datetime import datetime
 from database import create_db_and_tables, get_session
-from models import DiaryEntry
+from models import DiaryEntry, DiaryEntryCreate, DiaryEntryUpdate
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from sqlalchemy import or_
@@ -34,11 +35,12 @@ def on_startup():
     create_db_and_tables()
 
 @app.post("/entries/", response_model=DiaryEntry)
-def create_entry(entry: DiaryEntry, session: Session = Depends(get_session)):
-    session.add(entry)
+def create_entry(entry: DiaryEntryCreate, session: Session = Depends(get_session)):
+    db_entry = DiaryEntry(title=entry.title, content=entry.content)
+    session.add(db_entry)
     session.commit()
-    session.refresh(entry)
-    return entry
+    session.refresh(db_entry)
+    return db_entry
 
 @app.get("/entries/", response_model=List[DiaryEntry])
 def read_entries(
@@ -57,6 +59,12 @@ def read_entries(
         stmt = stmt.where(func.date(DiaryEntry.created_at) == filter_day.isoformat())
 
     stmt = stmt.offset(offset).limit(limit).order_by(DiaryEntry.created_at.desc())
+    return session.exec(stmt).all()
+
+
+@app.get("/entries/export/", response_model=List[DiaryEntry])
+def export_entries(session: Session = Depends(get_session)):
+    stmt = select(DiaryEntry).order_by(DiaryEntry.created_at.desc())
     return session.exec(stmt).all()
 
 
@@ -101,6 +109,20 @@ def read_entry(entry_id: int, session: Session = Depends(get_session)):
     entry = session.get(DiaryEntry, entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
+    return entry
+
+
+@app.put("/entries/{entry_id}", response_model=DiaryEntry)
+def update_entry(entry_id: int, payload: DiaryEntryUpdate, session: Session = Depends(get_session)):
+    entry = session.get(DiaryEntry, entry_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    entry.title = payload.title
+    entry.content = payload.content
+    entry.updated_at = datetime.utcnow()
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
     return entry
 
 @app.delete("/entries/{entry_id}")

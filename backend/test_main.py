@@ -185,3 +185,36 @@ def test_search_entries_filter_by_date(client, session):
 def test_invalid_date_filter_returns_400(client):
     response = client.get("/entries/", params={"date": "2024-13-40"})
     assert response.status_code == 400
+
+
+def test_update_entry(client):
+    create_response = client.post(
+        "/entries/",
+        json={"title": "Old", "content": "Old content"},
+    )
+    entry_id = create_response.json()["id"]
+
+    update_response = client.put(
+        f"/entries/{entry_id}",
+        json={"title": "New", "content": "New content"},
+    )
+    assert update_response.status_code == 200
+    data = update_response.json()
+    assert data["title"] == "New"
+    assert data["content"] == "New content"
+
+
+def test_export_entries(client):
+    client.post(
+        "/entries/",
+        json={"title": "Export 1", "content": "Content 1"},
+    )
+    client.post(
+        "/entries/",
+        json={"title": "Export 2", "content": "Content 2"},
+    )
+
+    response = client.get("/entries/export/")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2

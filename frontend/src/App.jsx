@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Book, PenTool, X, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Calendar, Book, PenTool, X, Search, ChevronLeft, ChevronRight, Download, Pencil, Lock } from 'lucide-react';
 import {
   format,
   parseISO,
@@ -17,31 +17,59 @@ import { zhCN } from 'date-fns/locale';
 
 // 使用相对路径，适配单体部署
 const API_URL = '';
+const AUTH_PASSWORD = import.meta.env.VITE_APP_PASSWORD || 'asd123123123';
+const AUTH_STORAGE_KEY = 'mydaily_auth';
+const AUTH_VALID_DAYS = 30;
+const AUTH_VALID_MS = AUTH_VALID_DAYS * 24 * 60 * 60 * 1000;
+
+const getStoredAuth = () => {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.expiresAt && Number(parsed.expiresAt) > Date.now()) {
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('Invalid auth cache', error);
+  }
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  return null;
+};
 
 function App() {
   const [entries, setEntries] = useState([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [markedDates, setMarkedDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null); // yyyy-MM-dd
   const [isLoadingEntries, setIsLoadingEntries] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(() => Boolean(getStoredAuth()));
+  const [passwordInput, setPasswordInput] = useState('');
+  const [authError, setAuthError] = useState('');
   const lastFetchSeq = useRef(0);
+  const isEditing = editingEntryId !== null;
 
   useEffect(() => {
+    if (!isAuthed) return;
     fetchMarkedDates();
-  }, []);
+  }, [isAuthed]);
 
   useEffect(() => {
+    if (!isAuthed) return;
     const q = searchQuery.trim();
     const handle = window.setTimeout(() => {
       fetchEntries({ q: q || null, date: selectedDate });
     }, 250);
 
     return () => window.clearTimeout(handle);
-  }, [searchQuery, selectedDate]);
+  }, [searchQuery, selectedDate, isAuthed]);
 
   const fetchEntries = async ({ q = null, date = null } = {}) => {
     const fetchSeq = ++lastFetchSeq.current;
@@ -80,15 +108,18 @@ function App() {
 
   const handleSearch = async (e) => {
     e.preventDefault();
+    if (!isAuthed) return;
     const q = searchQuery.trim();
     fetchEntries({ q: q || null, date: selectedDate });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isAuthed) return;
     try {
-      const response = await fetch(`${API_URL}/entries/`, {
-        method: 'POST',
+      const endpoint = isEditing ? `${API_URL}/entries/${editingEntryId}` : `${API_URL}/entries/`;
+      const response = await fetch(endpoint, {
+        method: isEditing ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -98,12 +129,13 @@ function App() {
         setTitle('');
         setContent('');
         setIsCreating(false);
+        setEditingEntryId(null);
         setSearchQuery('');
         fetchEntries({ q: null, date: selectedDate });
         fetchMarkedDates();
       }
     } catch (error) {
-      console.error('Error creating entry:', error);
+      console.error('Error saving entry:', error);
     }
   };
 
@@ -117,6 +149,67 @@ function App() {
       fetchMarkedDates();
     } catch (error) {
       console.error('Error deleting entry:', error);
+    }
+  };
+
+  const handleExportAll = async () => {
+    if (!isAuthed || isExporting) return;
+    setIsExporting(true);
+    try {
+      const response = await fetch(`${API_URL}/entries/export/`);
+      if (!response.ok) throw new Error('Export failed');
+      const data = await response.json();
+      const formatted = JSON.stringify(data, null, 2);
+      const blob = new Blob([formatted], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const stamp = format(new Date(), 'yyyyMMdd');
+      link.href = url;
+      link.download = `mydaily-export-${stamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting entries:', error);
+      window.alert('导出失败，请稍后重试。');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const startCreate = () => {
+    setEditingEntryId(null);
+    setTitle('');
+    setContent('');
+    setIsCreating(true);
+  };
+
+  const startEdit = (entry) => {
+    setEditingEntryId(entry.id);
+    setTitle(entry.title);
+    setContent(entry.content);
+    setIsCreating(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelCompose = () => {
+    setIsCreating(false);
+    setEditingEntryId(null);
+    setTitle('');
+    setContent('');
+  };
+
+  const handleAuthSubmit = (e) => {
+    e.preventDefault();
+    if (passwordInput === AUTH_PASSWORD) {
+      const payload = { expiresAt: Date.now() + AUTH_VALID_MS };
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
+      setIsAuthed(true);
+      setPasswordInput('');
+      setAuthError('');
+    } else {
+      setAuthError('密码不正确，请重试。');
     }
   };
 
@@ -253,6 +346,47 @@ function App() {
     </div>
   );
 
+  if (!isAuthed) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl border border-gray-100 shadow-lg p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-indigo-600 p-2 rounded-lg shadow">
+              <Lock className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">MyDaily</h1>
+              <p className="text-sm text-gray-500">请输入密码继续</p>
+            </div>
+          </div>
+          <form onSubmit={handleAuthSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1">密码</label>
+              <input
+                id="password"
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border transition-colors"
+                placeholder="请输入访问密码"
+                required
+              />
+            </div>
+            {authError && (
+              <p className="text-sm text-red-500 font-medium">{authError}</p>
+            )}
+            <button
+              type="submit"
+              className="w-full inline-flex items-center justify-center px-6 py-2.5 border border-transparent text-sm font-semibold rounded-full shadow-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
+            >
+              进入
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-6xl mx-auto">
@@ -272,20 +406,30 @@ function App() {
                   <p className="text-sm text-gray-500 mt-1 font-medium">写下你的每一天</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsCreating(!isCreating)}
-                className={`hidden lg:inline-flex items-center px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  isCreating 
-                    ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500' 
-                    : 'text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
-                }`}
-              >
-                {isCreating ? (
-                  <><X className="h-4 w-4 mr-2" /> 取消</>
-                ) : (
-                  <><Plus className="h-4 w-4 mr-2" /> 新建日记</>
-                )}
-              </button>
+              <div className="hidden lg:flex items-center gap-3">
+                <button
+                  onClick={handleExportAll}
+                  disabled={isExporting}
+                  className="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500 disabled:opacity-60"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {isExporting ? '导出中...' : '导出所有日记'}
+                </button>
+                <button
+                  onClick={() => (isCreating ? cancelCompose() : startCreate())}
+                  className={`inline-flex items-center px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    isCreating 
+                      ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500' 
+                      : 'text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
+                  }`}
+                >
+                  {isCreating ? (
+                    <><X className="h-4 w-4 mr-2" /> {isEditing ? '取消编辑' : '取消'}</>
+                  ) : (
+                    <><Plus className="h-4 w-4 mr-2" /> 新建日记</>
+                  )}
+                </button>
+              </div>
             </header>
 
 
@@ -353,7 +497,9 @@ function App() {
                 <div className="p-6 sm:p-8">
                   <div className="flex items-center space-x-2 mb-6">
                     <PenTool className="h-5 w-5 text-indigo-500" />
-                    <h2 className="text-lg font-bold text-gray-800">记下此刻的想法</h2>
+                    <h2 className="text-lg font-bold text-gray-800">
+                      {isEditing ? '编辑日记' : '记下此刻的想法'}
+                    </h2>
                   </div>
                   <form onSubmit={handleSubmit} className="space-y-5">
                     <div>
@@ -385,7 +531,7 @@ function App() {
                         type="submit"
                         className="inline-flex items-center px-6 py-2.5 border border-transparent text-sm font-semibold rounded-full shadow-md text-white bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
                       >
-                        发布日记
+                        {isEditing ? '保存修改' : '发布日记'}
                       </button>
                     </div>
                   </form>
@@ -413,13 +559,23 @@ function App() {
                             {format(new Date(entry.created_at), 'yyyy年MM月dd日 HH:mm', { locale: zhCN })}
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleDelete(entry.id)}
-                          className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
-                          title="删除日记"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => startEdit(entry)}
+                            className="p-2 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
+                            title="编辑日记"
+                            aria-label="编辑日记"
+                          >
+                            <Pencil className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(entry.id)}
+                            className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
+                            title="删除日记"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="mt-5">
@@ -443,7 +599,7 @@ function App() {
                         : '还没有日记呢。开始写下第一篇吧！'}
                   </p>
                   <button
-                    onClick={() => setIsCreating(true)}
+                    onClick={() => startCreate()}
                     className="mt-4 text-indigo-600 font-semibold hover:text-indigo-700 transition-colors"
                   >
                     马上动笔 →
@@ -460,7 +616,7 @@ function App() {
             <button
               onClick={() => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                setIsCreating(true);
+                startCreate();
               }}
               className="lg:hidden fixed bottom-6 right-6 p-4 rounded-full bg-indigo-600 text-white shadow-xl hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all z-50 active:scale-95"
               aria-label="新建日记"

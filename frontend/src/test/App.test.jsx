@@ -1,9 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import App from '../App';
 
 // Mock fetch API
 globalThis.fetch = vi.fn();
+const AUTH_STORAGE_KEY = 'mydaily_auth';
+
+beforeAll(() => {
+  if (!global.URL.createObjectURL) {
+    global.URL.createObjectURL = vi.fn(() => 'blob:mock');
+  }
+  if (!global.URL.revokeObjectURL) {
+    global.URL.revokeObjectURL = vi.fn();
+  }
+});
 
 function createFetchResponse(data) {
   return { ok: true, json: () => Promise.resolve(data) };
@@ -23,6 +33,14 @@ function mockFetchByUrl(handlers) {
 describe('App', () => {
   beforeEach(() => {
     fetch.mockReset();
+    localStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({ expiresAt: Date.now() + 1000 * 60 * 60 * 24 })
+    );
+  });
+
+  afterEach(() => {
+    localStorage.clear();
   });
 
   const toYmd = (d) => {
@@ -39,6 +57,24 @@ describe('App', () => {
     ]);
     render(<App />);
     expect(screen.getByText('MyDaily')).toBeInTheDocument();
+  });
+
+  it('requires password on first load', async () => {
+    localStorage.clear();
+    mockFetchByUrl([
+      ['/entries/dates/', () => Promise.resolve(createFetchResponse([]))],
+      ['/entries/', () => Promise.resolve(createFetchResponse([]))],
+    ]);
+    render(<App />);
+
+    expect(screen.getByText('请输入密码继续')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'asd123123123' } });
+    fireEvent.click(screen.getByText('进入'));
+
+    await waitFor(() => {
+      expect(screen.getByText('MyDaily')).toBeInTheDocument();
+    }, { timeout: 2000 });
   });
 
   it('shows empty state when no entries', async () => {
@@ -174,5 +210,43 @@ describe('App', () => {
       expect(screen.getByText('A')).toBeInTheDocument();
       expect(screen.queryByText('B')).not.toBeInTheDocument();
     }, { timeout: 2000 });
+  });
+
+  it('opens edit form when clicking edit button', async () => {
+    const mockEntries = [
+      { id: 1, title: 'Edit Me', content: 'Original', created_at: '2024-01-01T12:00:00' }
+    ];
+    mockFetchByUrl([
+      ['/entries/dates/', () => Promise.resolve(createFetchResponse(['2024-01-01']))],
+      ['/entries/', () => Promise.resolve(createFetchResponse(mockEntries))],
+    ]);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Edit Me')).toBeInTheDocument();
+    }, { timeout: 2000 });
+
+    fireEvent.click(screen.getByLabelText('编辑日记'));
+
+    expect(screen.getByDisplayValue('Edit Me')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Original')).toBeInTheDocument();
+  });
+
+  it('exports all entries', async () => {
+    mockFetchByUrl([
+      ['/entries/dates/', () => Promise.resolve(createFetchResponse([]))],
+      ['/entries/export/', () => Promise.resolve(createFetchResponse([{ id: 1, title: 'A', content: 'B', created_at: '2024-01-01T00:00:00' }]))],
+      ['/entries/', () => Promise.resolve(createFetchResponse([]))],
+    ]);
+
+    render(<App />);
+
+    const exportButton = screen.getByText('导出所有日记');
+    fireEvent.click(exportButton);
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/entries/export/'));
+    });
   });
 });

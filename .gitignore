@@ -69,3 +69,6 @@ logs/
 # Testing
 coverage/
 .nyc_output/
+
+# VSCode Counter
+.VSCodeCounter

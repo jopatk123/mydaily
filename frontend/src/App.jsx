@@ -389,11 +389,13 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] py-8 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-6xl mx-auto">
+      <div className={`mx-auto transition-all duration-300 ${isCreating ? 'max-w-4xl' : 'max-w-6xl'}`}>
         <div className="flex flex-col lg:flex-row gap-8 items-start">
-          <aside className="lg:w-80 flex-shrink-0 space-y-6 lg:sticky lg:top-8 z-10">
-            {renderCalendar()}
-          </aside>
+          {!isCreating && (
+            <aside className="lg:w-80 flex-shrink-0 space-y-6 lg:sticky lg:top-8 z-10">
+              {renderCalendar()}
+            </aside>
+          )}
 
           <main className="flex-1 w-full min-w-0">
             <header className="flex justify-between items-center mb-8 border-b border-gray-200 pb-6">
@@ -406,15 +408,17 @@ function App() {
                   <p className="text-sm text-gray-500 mt-1 font-medium">写下你的每一天</p>
                 </div>
               </div>
-              <div className="hidden lg:flex items-center gap-3">
-                <button
-                  onClick={handleExportAll}
-                  disabled={isExporting}
-                  className="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500 disabled:opacity-60"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  {isExporting ? '导出中...' : '导出所有日记'}
-                </button>
+              <div className="flex items-center gap-3">
+                {!isCreating && (
+                  <button
+                    onClick={handleExportAll}
+                    disabled={isExporting}
+                    className="hidden lg:inline-flex items-center px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500 disabled:opacity-60"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {isExporting ? '导出中...' : '导出所有日记'}
+                  </button>
+                )}
                 <button
                   onClick={() => (isCreating ? cancelCompose() : startCreate())}
                   className={`inline-flex items-center px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
@@ -433,103 +437,107 @@ function App() {
             </header>
 
 
-            <form onSubmit={handleSearch} className="mb-8">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                <div className="flex gap-3">
-                  <div className="relative flex-1">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Search className="h-4 w-4 text-gray-400" />
+            {!isCreating && (
+              <>
+                <form onSubmit={handleSearch} className="mb-8">
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex gap-3">
+                      <div className="relative flex-1">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Search className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pl-11 pr-4 py-3 border transition-colors"
+                          placeholder="搜索标题或内容..."
+                          aria-label="搜索"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="inline-flex items-center px-5 py-3 rounded-xl text-sm font-semibold shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
+                      >
+                        搜索
+                      </button>
                     </div>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pl-11 pr-4 py-3 border transition-colors"
-                      placeholder="搜索标题或内容..."
-                      aria-label="搜索"
-                    />
                   </div>
-                  <button
-                    type="submit"
-                    className="inline-flex items-center px-5 py-3 rounded-xl text-sm font-semibold shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
-                  >
-                    搜索
-                  </button>
-                </div>
-              </div>
-            </form>
+                </form>
 
-            {(selectedDate || searchQuery.trim()) && (
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                {selectedDate && (
-                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold">
-                    日期：{format(parseISO(selectedDate), 'yyyy年MM月dd日', { locale: zhCN })}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDate(null)}
-                      className="text-indigo-700/70 hover:text-indigo-800"
-                      aria-label="清除日期筛选"
-                      title="清除日期筛选"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </span>
+                {(selectedDate || searchQuery.trim()) && (
+                  <div className="mb-4 flex flex-wrap items-center gap-2">
+                    {selectedDate && (
+                      <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold">
+                        日期：{format(parseISO(selectedDate), 'yyyy年MM月dd日', { locale: zhCN })}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDate(null)}
+                          className="text-indigo-700/70 hover:text-indigo-800"
+                          aria-label="清除日期筛选"
+                          title="清除日期筛选"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
+                    )}
+                    {searchQuery.trim() && (
+                      <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-50 text-gray-700 text-xs font-semibold">
+                        关键词：{searchQuery.trim()}
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery('')}
+                          className="text-gray-500 hover:text-gray-700"
+                          aria-label="清除搜索关键词"
+                          title="清除搜索关键词"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
+                    )}
+                  </div>
                 )}
-                {searchQuery.trim() && (
-                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-50 text-gray-700 text-xs font-semibold">
-                    关键词：{searchQuery.trim()}
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="text-gray-500 hover:text-gray-700"
-                      aria-label="清除搜索关键词"
-                      title="清除搜索关键词"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </span>
-                )}
-              </div>
+              </>
             )}
 
             {isCreating && (
               <div className="bg-white rounded-2xl shadow-xl border border-gray-100 mb-10 overflow-hidden transform transition-all animate-in fade-in slide-in-from-top-4">
-                <div className="p-6 sm:p-8">
-                  <div className="flex items-center space-x-2 mb-6">
-                    <PenTool className="h-5 w-5 text-indigo-500" />
-                    <h2 className="text-lg font-bold text-gray-800">
+                <div className="p-6 sm:p-10">
+                  <div className="flex items-center space-x-2 mb-8">
+                    <PenTool className="h-6 w-6 text-indigo-500" />
+                    <h2 className="text-2xl font-bold text-gray-800">
                       {isEditing ? '编辑日记' : '记下此刻的想法'}
                     </h2>
                   </div>
-                  <form onSubmit={handleSubmit} className="space-y-5">
+                  <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                      <label htmlFor="title" className="block text-sm font-semibold text-gray-700 mb-1">标题</label>
+                      <label htmlFor="title" className="block text-sm font-semibold text-gray-700 mb-2">标题</label>
                       <input
                         type="text"
                         id="title"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border transition-colors"
+                        className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-lg p-4 border transition-colors"
                         placeholder="今天想写点什么？"
                         required
                       />
                     </div>
                     <div>
-                      <label htmlFor="content" className="block text-sm font-semibold text-gray-700 mb-1">内容</label>
+                      <label htmlFor="content" className="block text-sm font-semibold text-gray-700 mb-2">内容</label>
                       <textarea
                         id="content"
-                        rows={6}
+                        rows={15}
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
-                        className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border transition-colors resize-none"
+                        className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base p-4 border transition-colors resize-none leading-relaxed"
                         placeholder="在此记录下今天的点滴..."
                         required
                       />
                     </div>
-                    <div className="flex justify-end pt-2">
+                    <div className="flex justify-end pt-4">
                       <button
                         type="submit"
-                        className="inline-flex items-center px-6 py-2.5 border border-transparent text-sm font-semibold rounded-full shadow-md text-white bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
+                        className="inline-flex items-center px-8 py-3 border border-transparent text-base font-semibold rounded-full shadow-md text-white bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
                       >
                         {isEditing ? '保存修改' : '发布日记'}
                       </button>
@@ -540,89 +548,93 @@ function App() {
             )}
 
 
-            <div className="space-y-8">
-              {isLoadingEntries && (
-                 <div className="space-y-6">
-                   <EntrySkeleton />
-                   <EntrySkeleton /> 
-                 </div>
-              )}
-              {!isLoadingEntries && entries.length > 0 ? (
-                entries.map((entry) => (
-                  <article key={entry.id} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
-                    <div className="p-6 sm:px-8 py-6">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors tracking-wide">{entry.title}</h3>
-                          <div className="flex items-center text-xs font-medium text-gray-400">
-                            <Calendar className="h-3.5 w-3.5 mr-1.5" />
-                            {format(new Date(entry.created_at), 'yyyy年MM月dd日 HH:mm', { locale: zhCN })}
+            {!isCreating && (
+              <div className="space-y-8">
+                {isLoadingEntries && (
+                   <div className="space-y-6">
+                     <EntrySkeleton />
+                     <EntrySkeleton /> 
+                   </div>
+                )}
+                {!isLoadingEntries && entries.length > 0 ? (
+                  entries.map((entry) => (
+                    <article key={entry.id} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+                      <div className="p-6 sm:px-8 py-6">
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors tracking-wide">{entry.title}</h3>
+                            <div className="flex items-center text-xs font-medium text-gray-400">
+                              <Calendar className="h-3.5 w-3.5 mr-1.5" />
+                              {format(new Date(entry.created_at), 'yyyy年MM月dd日 HH:mm', { locale: zhCN })}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => startEdit(entry)}
+                              className="p-2 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
+                              title="编辑日记"
+                              aria-label="编辑日记"
+                            >
+                              <Pencil className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(entry.id)}
+                              className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
+                              title="删除日记"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => startEdit(entry)}
-                            className="p-2 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
-                            title="编辑日记"
-                            aria-label="编辑日记"
-                          >
-                            <Pencil className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(entry.id)}
-                            className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
-                            title="删除日记"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
 
-                      <div className="mt-5">
-                        <div className="prose prose-sm prose-indigo max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap font-medium">
-                          {entry.content}
+                        <div className="mt-5">
+                          <div className="prose prose-sm prose-indigo max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap font-medium">
+                            {entry.content}
+                          </div>
                         </div>
                       </div>
+                    </article>
+                  ))
+                ) : !isLoadingEntries && (
+                  <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200 shadow-inner">
+                    <div className="inline-flex items-center justify-center p-4 bg-indigo-50 rounded-full mb-4">
+                      <PenTool className="h-8 w-8 text-indigo-300" />
                     </div>
-                  </article>
-                ))
-              ) : !isLoadingEntries && !isCreating && (
-                <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200 shadow-inner">
-                  <div className="inline-flex items-center justify-center p-4 bg-indigo-50 rounded-full mb-4">
-                    <PenTool className="h-8 w-8 text-indigo-300" />
+                    <p className="text-gray-400 text-lg font-medium">
+                      {selectedDate
+                        ? '这一天还没有日记。写一篇记录下吧！'
+                        : searchQuery.trim()
+                          ? '没有搜索到匹配的日记。换个关键词试试？'
+                          : '还没有日记呢。开始写下第一篇吧！'}
+                    </p>
+                    <button
+                      onClick={() => startCreate()}
+                      className="mt-4 text-indigo-600 font-semibold hover:text-indigo-700 transition-colors"
+                    >
+                      马上动笔 →
+                    </button>
                   </div>
-                  <p className="text-gray-400 text-lg font-medium">
-                    {selectedDate
-                      ? '这一天还没有日记。写一篇记录下吧！'
-                      : searchQuery.trim()
-                        ? '没有搜索到匹配的日记。换个关键词试试？'
-                        : '还没有日记呢。开始写下第一篇吧！'}
-                  </p>
-                  <button
-                    onClick={() => startCreate()}
-                    className="mt-4 text-indigo-600 font-semibold hover:text-indigo-700 transition-colors"
-                  >
-                    马上动笔 →
-                  </button>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
             
             <footer className="mt-20 text-center text-gray-400 text-sm pb-10">
               <p>© {new Date().getFullYear()} MyDaily · 记录生活每一刻</p>
             </footer>
 
             {/* Mobile Floating Action Button */}
-            <button
-              onClick={() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                startCreate();
-              }}
-              className="lg:hidden fixed bottom-6 right-6 p-4 rounded-full bg-indigo-600 text-white shadow-xl hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all z-50 active:scale-95"
-              aria-label="新建日记"
-            >
-              <Plus className="h-6 w-6" />
-            </button>
+            {!isCreating && (
+              <button
+                onClick={() => {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  startCreate();
+                }}
+                className="lg:hidden fixed bottom-6 right-6 p-4 rounded-full bg-indigo-600 text-white shadow-xl hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all z-50 active:scale-95"
+                aria-label="新建日记"
+              >
+                <Plus className="h-6 w-6" />
+              </button>
+            )}
           </main>
         </div>
       </div>

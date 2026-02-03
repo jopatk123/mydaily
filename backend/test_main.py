@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from models import DiaryEntry
+from models import DiaryEntry, Todo
 def test_create_entry(client):
     response = client.post(
         "/entries/",
@@ -218,3 +218,102 @@ def test_export_entries(client):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 2
+
+
+# ========== Todo Tests ==========
+
+def test_create_todo(client):
+    response = client.post(
+        "/todos/",
+        json={"title": "买菜", "completed": False},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "买菜"
+    assert data["completed"] is False
+    assert "id" in data
+    assert "created_at" in data
+
+
+def test_read_todos(client):
+    # 创建多个待办事项
+    client.post("/todos/", json={"title": "任务1", "completed": False})
+    client.post("/todos/", json={"title": "任务2", "completed": True})
+    client.post("/todos/", json={"title": "任务3", "completed": False})
+
+    response = client.get("/todos/")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 3
+    # 验证按创建时间倒序排列
+    assert data[0]["title"] == "任务3"
+
+
+def test_update_todo(client):
+    create_response = client.post(
+        "/todos/",
+        json={"title": "学习 Python", "completed": False},
+    )
+    todo_id = create_response.json()["id"]
+
+    # 更新为已完成
+    update_response = client.put(
+        f"/todos/{todo_id}",
+        json={"title": "学习 Python", "completed": True},
+    )
+    assert update_response.status_code == 200
+    data = update_response.json()
+    assert data["completed"] is True
+
+
+def test_update_todo_not_found(client):
+    response = client.put(
+        "/todos/999",
+        json={"title": "不存在", "completed": True},
+    )
+    assert response.status_code == 404
+
+
+def test_delete_todo(client):
+    create_response = client.post(
+        "/todos/",
+        json={"title": "待删除任务", "completed": False},
+    )
+    todo_id = create_response.json()["id"]
+
+    delete_response = client.delete(f"/todos/{todo_id}")
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {"ok": True}
+
+    # 验证已被删除
+    get_response = client.get("/todos/")
+    todos = get_response.json()
+    assert not any(t["id"] == todo_id for t in todos)
+
+
+def test_delete_todo_not_found(client):
+    response = client.delete("/todos/999")
+    assert response.status_code == 404
+
+
+def test_toggle_todo_completion(client):
+    # 创建未完成的待办
+    create_response = client.post(
+        "/todos/",
+        json={"title": "测试切换", "completed": False},
+    )
+    todo_id = create_response.json()["id"]
+
+    # 切换为完成
+    client.put(
+        f"/todos/{todo_id}",
+        json={"title": "测试切换", "completed": True},
+    )
+
+    # 再切换回未完成
+    response = client.put(
+        f"/todos/{todo_id}",
+        json={"title": "测试切换", "completed": False},
+    )
+    assert response.status_code == 200
+    assert response.json()["completed"] is False

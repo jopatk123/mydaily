@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import AuthScreen from './components/AuthScreen';
 import CalendarPanel from './components/CalendarPanel';
+import TodoPanel from './components/TodoPanel';
 import EntryForm from './components/EntryForm';
 import EntryList from './components/EntryList';
 import FilterChips from './components/FilterChips';
@@ -233,6 +234,7 @@ function App() {
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
               />
+              <TodoPanel apiUrl={API_URL} />
             </aside>
           )}
 

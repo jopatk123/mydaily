@@ -6,7 +6,7 @@ from typing import List
 from datetime import date as dt_date
 from datetime import datetime
 from database import create_db_and_tables, get_session
-from models import DiaryEntry, DiaryEntryCreate, DiaryEntryUpdate
+from models import DiaryEntry, DiaryEntryCreate, DiaryEntryUpdate, Todo, TodoCreate, TodoUpdate
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from sqlalchemy import or_
@@ -133,6 +133,51 @@ def delete_entry(entry_id: int, session: Session = Depends(get_session)):
     session.delete(entry)
     session.commit()
     return {"ok": True}
+
+
+@app.post("/todos/", response_model=Todo)
+def create_todo(todo: TodoCreate, session: Session = Depends(get_session)):
+    db_todo = Todo(title=todo.title, completed=todo.completed)
+    session.add(db_todo)
+    session.commit()
+    session.refresh(db_todo)
+    return db_todo
+
+
+@app.get("/todos/", response_model=List[Todo])
+def read_todos(
+    session: Session = Depends(get_session)
+):
+    # Sort by created_at desc (newest first)
+    todos = session.exec(select(Todo).order_by(Todo.created_at.desc())).all()
+    return todos
+
+
+@app.put("/todos/{todo_id}", response_model=Todo)
+def update_todo(todo_id: int, todo: TodoUpdate, session: Session = Depends(get_session)):
+    db_todo = session.get(Todo, todo_id)
+    if not db_todo:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    
+    todo_data = todo.model_dump(exclude_unset=True)
+    for key, value in todo_data.items():
+        setattr(db_todo, key, value)
+    
+    session.add(db_todo)
+    session.commit()
+    session.refresh(db_todo)
+    return db_todo
+
+
+@app.delete("/todos/{todo_id}")
+def delete_todo(todo_id: int, session: Session = Depends(get_session)):
+    todo = session.get(Todo, todo_id)
+    if not todo:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    session.delete(todo)
+    session.commit()
+    return {"ok": True}
+
 
 # 挂载静态文件服务（生产环境）
 static_path = Path(__file__).parent / "static"

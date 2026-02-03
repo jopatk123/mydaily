@@ -9,7 +9,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/entries': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+      '/todos': {
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

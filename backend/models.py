@@ -1,6 +1,10 @@
 from typing import Optional
 from sqlmodel import Field, SQLModel
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class DiaryEntryBase(SQLModel):
@@ -18,8 +22,8 @@ class DiaryEntryUpdate(DiaryEntryBase):
 
 class DiaryEntry(DiaryEntryBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class TodoBase(SQLModel):
@@ -37,4 +41,4 @@ class TodoUpdate(TodoBase):
 
 class Todo(TodoBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)

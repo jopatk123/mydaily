@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 from typing import List
 from datetime import date as dt_date
-from datetime import datetime
+from datetime import datetime, timezone
 from database import create_db_and_tables, get_session
 from models import DiaryEntry, DiaryEntryCreate, DiaryEntryUpdate, Todo, TodoCreate, TodoUpdate
 from fastapi.middleware.cors import CORSMiddleware
@@ -119,7 +119,7 @@ def update_entry(entry_id: int, payload: DiaryEntryUpdate, session: Session = De
         raise HTTPException(status_code=404, detail="Entry not found")
     entry.title = payload.title
     entry.content = payload.content
-    entry.updated_at = datetime.utcnow()
+    entry.updated_at = datetime.now(timezone.utc)
     session.add(entry)
     session.commit()
     session.refresh(entry)

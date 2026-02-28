@@ -3,6 +3,18 @@ import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import EntrySkeleton from './EntrySkeleton';
 
+function parseEntryDate(rawValue) {
+  if (!rawValue) return null;
+  if (rawValue instanceof Date) return rawValue;
+
+  if (typeof rawValue === 'string') {
+    const hasTimezoneSuffix = /([zZ]|[+-]\d{2}:\d{2})$/.test(rawValue);
+    return new Date(hasTimezoneSuffix ? rawValue : `${rawValue}Z`);
+  }
+
+  return new Date(rawValue);
+}
+
 function EntryList({ entries, isLoadingEntries, selectedDate, searchQuery, onEdit, onDelete, onCreate }) {
   if (isLoadingEntries) {
     return (
@@ -16,7 +28,13 @@ function EntryList({ entries, isLoadingEntries, selectedDate, searchQuery, onEdi
   if (!isLoadingEntries && entries.length > 0) {
     return (
       <div className="space-y-8">
-        {entries.map((entry) => (
+        {entries.map((entry) => {
+          const createdAt = parseEntryDate(entry.created_at);
+          const createdAtLabel = createdAt && !Number.isNaN(createdAt.getTime())
+            ? format(createdAt, 'yyyy年MM月dd日 HH:mm', { locale: zhCN })
+            : '-';
+
+          return (
           <article key={entry.id} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
             <div className="p-6 sm:px-8 py-6">
               <div className="flex justify-between items-start">
@@ -24,7 +42,7 @@ function EntryList({ entries, isLoadingEntries, selectedDate, searchQuery, onEdi
                   <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors tracking-wide">{entry.title}</h3>
                   <div className="flex items-center text-xs font-medium text-gray-400">
                     <Calendar className="h-3.5 w-3.5 mr-1.5" />
-                    {format(new Date(entry.created_at), 'yyyy年MM月dd日 HH:mm', { locale: zhCN })}
+                    {createdAtLabel}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -53,7 +71,8 @@ function EntryList({ entries, isLoadingEntries, selectedDate, searchQuery, onEdi
               </div>
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
     );
   }

@@ -1,12 +1,8 @@
-fastapi
-uvicorn
-sqlmodel
-pydantic
+fastapi>=0.128.0,<1.0.0
+uvicorn>=0.30.0,<1.0.0
+sqlmodel>=0.0.22,<1.0.0
+pydantic>=2.10.0,<3.0.0
 
 # Dev dependencies (optional for local development)
-pytest
-# pytest-cov
-httpx
-# black
-# isort
-# flake8
+pytest>=8.0.0
+httpx>=0.27.0

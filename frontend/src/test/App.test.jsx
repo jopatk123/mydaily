@@ -35,7 +35,7 @@ describe('App', () => {
     fetch.mockReset();
     localStorage.setItem(
       AUTH_STORAGE_KEY,
-      JSON.stringify({ expiresAt: Date.now() + 1000 * 60 * 60 * 24 })
+      JSON.stringify({ token: 'test-token', expiresAt: Date.now() + 1000 * 60 * 60 * 24 })
     );
   });
 
@@ -62,6 +62,7 @@ describe('App', () => {
   it('requires password on first load', async () => {
     localStorage.clear();
     mockFetchByUrl([
+      ['/auth/login', () => Promise.resolve(createFetchResponse({ token: 'test-token' }))],
       ['/entries/dates/', () => Promise.resolve(createFetchResponse([]))],
       ['/entries/', () => Promise.resolve(createFetchResponse([]))],
     ]);
@@ -246,7 +247,10 @@ describe('App', () => {
     fireEvent.click(exportButton);
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/entries/export/'));
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/entries/export/'),
+        expect.any(Object)
+      );
     });
   });
 });

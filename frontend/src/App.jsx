@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
 import AuthScreen from './components/AuthScreen';
 import CalendarPanel from './components/CalendarPanel';
@@ -9,29 +9,7 @@ import FilterChips from './components/FilterChips';
 import HeaderBar from './components/HeaderBar';
 import MobileFab from './components/MobileFab';
 import SearchBar from './components/SearchBar';
-
-// 使用相对路径，适配单体部署
-const API_URL = '';
-const AUTH_PASSWORD = import.meta.env.VITE_APP_PASSWORD || 'asd123123123';
-const AUTH_STORAGE_KEY = 'mydaily_auth';
-const AUTH_VALID_DAYS = 30;
-const AUTH_VALID_MS = AUTH_VALID_DAYS * 24 * 60 * 60 * 1000;
-
-const getStoredAuth = () => {
-  if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed?.expiresAt && Number(parsed.expiresAt) > Date.now()) {
-      return parsed;
-    }
-  } catch (error) {
-    console.warn('Invalid auth cache', error);
-  }
-  localStorage.removeItem(AUTH_STORAGE_KEY);
-  return null;
-};
+import * as api from './api';
 
 function App() {
   const [entries, setEntries] = useState([]);
@@ -45,11 +23,16 @@ function App() {
   const [selectedDate, setSelectedDate] = useState(null); // yyyy-MM-dd
   const [isLoadingEntries, setIsLoadingEntries] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [isAuthed, setIsAuthed] = useState(() => Boolean(getStoredAuth()));
+  const [isAuthed, setIsAuthed] = useState(() => Boolean(api.getStoredAuth()));
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
   const lastFetchSeq = useRef(0);
   const isEditing = editingEntryId !== null;
+
+  const handleAuthExpired = useCallback(() => {
+    api.clearAuth();
+    setIsAuthed(false);
+  }, []);
 
   useEffect(() => {
     if (!isAuthed) return;
@@ -70,16 +53,16 @@ function App() {
     const fetchSeq = ++lastFetchSeq.current;
     setIsLoadingEntries(true);
     try {
-      const url = q
-        ? `${API_URL}/entries/search/?q=${encodeURIComponent(q)}${date ? `&date=${encodeURIComponent(date)}` : ''}`
-        : `${API_URL}/entries/${date ? `?date=${encodeURIComponent(date)}` : ''}`;
+      const path = q
+        ? `/entries/search/?q=${encodeURIComponent(q)}${date ? `&date=${encodeURIComponent(date)}` : ''}`
+        : `/entries/${date ? `?date=${encodeURIComponent(date)}` : ''}`;
 
-      const response = await fetch(url);
-      const data = await response.json();
+      const data = await api.get(path);
       if (fetchSeq === lastFetchSeq.current) {
         setEntries(Array.isArray(data) ? data : []);
       }
     } catch (error) {
+      if (error.status === 401) return handleAuthExpired();
       console.error('Error fetching entries:', error);
       if (fetchSeq === lastFetchSeq.current) {
         setEntries([]);
@@ -93,10 +76,10 @@ function App() {
 
   const fetchMarkedDates = async () => {
     try {
-      const response = await fetch(`${API_URL}/entries/dates/`);
-      const data = await response.json();
+      const data = await api.get('/entries/dates/');
       setMarkedDates(Array.isArray(data) ? data : []);
     } catch (error) {
+      if (error.status === 401) return handleAuthExpired();
       console.error('Error fetching marked dates:', error);
     }
   };
@@ -112,38 +95,35 @@ function App() {
     e.preventDefault();
     if (!isAuthed) return;
     try {
-      const endpoint = isEditing ? `${API_URL}/entries/${editingEntryId}` : `${API_URL}/entries/`;
-      const response = await fetch(endpoint, {
-        method: isEditing ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title, content }),
-      });
-      if (response.ok) {
-        setTitle('');
-        setContent('');
-        setIsCreating(false);
-        setEditingEntryId(null);
-        setSearchQuery('');
-        fetchEntries({ q: null, date: selectedDate });
-        fetchMarkedDates();
+      if (isEditing) {
+        await api.put(`/entries/${editingEntryId}`, { title, content });
+      } else {
+        await api.post('/entries/', { title, content });
       }
+      setTitle('');
+      setContent('');
+      setIsCreating(false);
+      setEditingEntryId(null);
+      setSearchQuery('');
+      fetchEntries({ q: null, date: selectedDate });
+      fetchMarkedDates();
     } catch (error) {
+      if (error.status === 401) return handleAuthExpired();
       console.error('Error saving entry:', error);
+      window.alert('保存失败，请稍后重试。');
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('确定要删除这篇日记吗？')) return;
     try {
-      await fetch(`${API_URL}/entries/${id}`, {
-        method: 'DELETE',
-      });
+      await api.del(`/entries/${id}`);
       fetchEntries({ q: searchQuery.trim() || null, date: selectedDate });
       fetchMarkedDates();
     } catch (error) {
+      if (error.status === 401) return handleAuthExpired();
       console.error('Error deleting entry:', error);
+      window.alert('删除失败，请稍后重试。');
     }
   };
 
@@ -151,9 +131,7 @@ function App() {
     if (!isAuthed || isExporting) return;
     setIsExporting(true);
     try {
-      const response = await fetch(`${API_URL}/entries/export/`);
-      if (!response.ok) throw new Error('Export failed');
-      const data = await response.json();
+      const data = await api.get('/entries/export/');
       const formatted = JSON.stringify(data, null, 2);
       const blob = new Blob([formatted], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -166,6 +144,7 @@ function App() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
+      if (error.status === 401) return handleAuthExpired();
       console.error('Error exporting entries:', error);
       window.alert('导出失败，请稍后重试。');
     } finally {
@@ -195,20 +174,20 @@ function App() {
     setContent('');
   };
 
-  const handleAuthSubmit = (e) => {
+  const handleAuthSubmit = async (e) => {
     e.preventDefault();
-    if (passwordInput === AUTH_PASSWORD) {
-      const payload = { expiresAt: Date.now() + AUTH_VALID_MS };
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
+    setAuthError('');
+    try {
+      const { token } = await api.login(passwordInput);
+      api.storeAuth(token);
       setIsAuthed(true);
       setPasswordInput('');
-      setAuthError('');
-    } else {
-      setAuthError('密码不正确，请重试。');
+    } catch (error) {
+      setAuthError(error.message || '密码不正确，请重试。');
     }
   };
 
-  const markedDateSet = new Set(markedDates);
+  const markedDateSet = useMemo(() => new Set(markedDates), [markedDates]);
 
   if (!isAuthed) {
     return (
@@ -234,7 +213,7 @@ function App() {
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
               />
-              <TodoPanel apiUrl={API_URL} />
+              <TodoPanel />
             </aside>
           )}
 

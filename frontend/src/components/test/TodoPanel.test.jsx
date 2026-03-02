@@ -28,7 +28,7 @@ describe('TodoPanel', () => {
   });
 
   it('应该正确渲染待办事项面板', async () => {
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       expect(screen.getByText('待办事项')).toBeInTheDocument();
@@ -36,15 +36,15 @@ describe('TodoPanel', () => {
   });
 
   it('应该在初始化时获取待办列表', async () => {
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(`${mockApiUrl}/todos/`);
+      expect(global.fetch).toHaveBeenCalledWith(`${mockApiUrl}/todos/`, expect.any(Object));
     });
   });
 
   it('应该显示待办数量统计', async () => {
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       // 2 个未完成的待办
@@ -53,7 +53,7 @@ describe('TodoPanel', () => {
   });
 
   it('应该渲染所有待办事项', async () => {
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       expect(screen.getByText('完成测试')).toBeInTheDocument();
@@ -63,7 +63,7 @@ describe('TodoPanel', () => {
   });
 
   it('点击"添加新事项"应该显示输入框', async () => {
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       const addButton = screen.getByText('添加新事项');
@@ -82,7 +82,7 @@ describe('TodoPanel', () => {
       json: async () => ({ id: 4, title: '新任务', completed: false }),
     });
 
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       const addButton = screen.getByText('添加新事项');
@@ -100,7 +100,7 @@ describe('TodoPanel', () => {
         `${mockApiUrl}/todos/`,
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ title: '新任务', completed: false }),
         })
       );
@@ -116,7 +116,7 @@ describe('TodoPanel', () => {
       json: async () => ({ id: 4, title: '新任务', completed: false }),
     });
 
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       const addButton = screen.getByText('添加新事项');
@@ -138,7 +138,7 @@ describe('TodoPanel', () => {
   });
 
   it('应该能通过按 Esc 键取消添加', async () => {
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       const addButton = screen.getByText('添加新事项');
@@ -156,7 +156,7 @@ describe('TodoPanel', () => {
   });
 
   it('空内容时确认按钮应该被禁用', async () => {
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       const addButton = screen.getByText('添加新事项');
@@ -176,7 +176,7 @@ describe('TodoPanel', () => {
       json: async () => ({ ...mockTodos[0], completed: true }),
     });
 
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       expect(screen.getByText('完成测试')).toBeInTheDocument();
@@ -206,7 +206,7 @@ describe('TodoPanel', () => {
       json: async () => ({ ok: true }),
     });
 
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       expect(screen.getByText('完成测试')).toBeInTheDocument();
@@ -232,7 +232,7 @@ describe('TodoPanel', () => {
   it('取消删除时不应该调用 API', async () => {
     global.confirm = vi.fn(() => false); // 用户点击取消
 
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       expect(screen.getByText('完成测试')).toBeInTheDocument();
@@ -255,7 +255,7 @@ describe('TodoPanel', () => {
       json: async () => [],
     });
 
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       expect(screen.getByText(/还没有待办事项/)).toBeInTheDocument();
@@ -268,7 +268,7 @@ describe('TodoPanel', () => {
     
     global.fetch.mockRejectedValue(new Error('Network error'));
 
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       expect(consoleError).toHaveBeenCalledWith(
@@ -281,7 +281,7 @@ describe('TodoPanel', () => {
   });
 
   it('未完成的待办应该排在已完成的前面', async () => {
-    render(<TodoPanel apiUrl={mockApiUrl} />);
+    render(<TodoPanel />);
     
     await waitFor(() => {
       const items = screen.getAllByRole('button').filter(btn => 

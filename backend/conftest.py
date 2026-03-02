@@ -5,6 +5,7 @@ from sqlmodel.pool import StaticPool
 
 from main import app
 from database import get_session
+from auth import verify_auth
 
 
 @pytest.fixture(name="session")
@@ -22,9 +23,10 @@ def session_fixture():
 @pytest.fixture(name="client")
 def client_fixture(session: Session):
     def get_session_override():
-        return session
+        yield session
 
     app.dependency_overrides[get_session] = get_session_override
+    app.dependency_overrides[verify_auth] = lambda: None
     client = TestClient(app)
     yield client
     app.dependency_overrides.clear()

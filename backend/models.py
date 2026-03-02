@@ -16,8 +16,9 @@ class DiaryEntryCreate(DiaryEntryBase):
     pass
 
 
-class DiaryEntryUpdate(DiaryEntryBase):
-    pass
+class DiaryEntryUpdate(SQLModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
 
 
 class DiaryEntry(DiaryEntryBase, table=True):
@@ -35,10 +36,19 @@ class TodoCreate(TodoBase):
     pass
 
 
-class TodoUpdate(TodoBase):
-    pass
+class TodoUpdate(SQLModel):
+    title: Optional[str] = None
+    completed: Optional[bool] = None
 
 
 class Todo(TodoBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class LoginRequest(SQLModel):
+    password: str
+
+
+class LoginResponse(SQLModel):
+    token: str

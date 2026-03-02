@@ -1,45 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, CheckCircle2, Circle, X, Check } from 'lucide-react';
+import * as api from '../api';
 
-function TodoPanel({ apiUrl }) {
+function TodoPanel() {
   const [todos, setTodos] = useState([]);
   const [newTodo, setNewTodo] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
-  useEffect(() => {
-    fetchTodos();
-  }, []);
-
-  const fetchTodos = async () => {
+  const fetchTodos = useCallback(async () => {
     try {
-      const response = await fetch(`${apiUrl}/todos/`);
-      if (response.ok) {
-        const data = await response.json();
-        // data 已经在后端排序了，这里直接使用
-        setTodos(data);
-      }
+      const data = await api.get('/todos/');
+      setTodos(data);
     } catch (error) {
       console.error('Error fetching todos:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchTodos();
+  }, [fetchTodos]);
 
   const handleAddTodo = async (e) => {
     e.preventDefault();
     if (!newTodo.trim()) return;
 
     try {
-      const response = await fetch(`${apiUrl}/todos/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTodo, completed: false }),
-      });
-      if (response.ok) {
-        setNewTodo('');
-        setIsAdding(false);
-        fetchTodos();
-      }
+      await api.post('/todos/', { title: newTodo, completed: false });
+      setNewTodo('');
+      setIsAdding(false);
+      fetchTodos();
     } catch (error) {
       console.error('Error adding todo:', error);
+      window.alert('添加待办失败，请稍后重试。');
     }
   };
 
@@ -51,15 +43,7 @@ function TodoPanel({ apiUrl }) {
     setTodos(updatedTodos);
 
     try {
-      const response = await fetch(`${apiUrl}/todos/${todo.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...todo, completed: !todo.completed }),
-      });
-      if (!response.ok) {
-        // 如果失败，回滚
-        fetchTodos();
-      }
+      await api.put(`/todos/${todo.id}`, { completed: !todo.completed });
     } catch (error) {
       console.error('Error updating todo:', error);
       fetchTodos();
@@ -68,17 +52,14 @@ function TodoPanel({ apiUrl }) {
 
   const deleteTodo = async (id) => {
     const todo = todos.find(t => t.id === id);
-    if (!window.confirm(`确定要删除 "${todo?.title}" 吗？`)) return;
+    if (!window.confirm(`确定要删除 "${todo?.title ?? ''}" 吗？`)) return;
 
     try {
-      const response = await fetch(`${apiUrl}/todos/${id}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        setTodos(prev => prev.filter(t => t.id !== id));
-      }
+      await api.del(`/todos/${id}`);
+      setTodos(prev => prev.filter(t => t.id !== id));
     } catch (error) {
       console.error('Error deleting todo:', error);
+      window.alert('删除待办失败，请稍后重试。');
     }
   };
 

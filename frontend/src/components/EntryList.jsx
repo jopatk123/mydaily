@@ -1,4 +1,4 @@
-import { Calendar, PenTool, Pencil, Trash2 } from 'lucide-react';
+import { Calendar, PenTool, Pencil, Trash2, Pin, PinOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import EntrySkeleton from './EntrySkeleton';
@@ -15,7 +15,7 @@ function parseEntryDate(rawValue) {
   return new Date(rawValue);
 }
 
-function EntryList({ entries, isLoadingEntries, selectedDate, searchQuery, onEdit, onDelete, onCreate }) {
+function EntryList({ entries, isLoadingEntries, selectedDate, searchQuery, onEdit, onDelete, onPin, onCreate }) {
   if (isLoadingEntries) {
     return (
       <div className="space-y-6">
@@ -35,17 +35,41 @@ function EntryList({ entries, isLoadingEntries, selectedDate, searchQuery, onEdi
             : '-';
 
           return (
-          <article key={entry.id} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+          <article key={entry.id} className={`group bg-white rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 ${
+              entry.is_pinned
+                ? 'border-amber-300 ring-1 ring-amber-200'
+                : 'border-gray-100'
+            }`}>
             <div className="p-6 sm:px-8 py-6">
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
-                  <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors tracking-wide">{entry.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors tracking-wide">{entry.title}</h3>
+                    {entry.is_pinned && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-600">
+                        <Pin className="h-3 w-3" />
+                        置顶
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center text-xs font-medium text-gray-400">
                     <Calendar className="h-3.5 w-3.5 mr-1.5" />
                     {createdAtLabel}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onPin(entry.id)}
+                    className={`p-2 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 ${
+                      entry.is_pinned
+                        ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 lg:opacity-100'
+                        : 'text-gray-300 hover:text-amber-500 hover:bg-amber-50'
+                    }`}
+                    title={entry.is_pinned ? '取消置顶' : '置顶日记'}
+                    aria-label={entry.is_pinned ? '取消置顶' : '置顶日记'}
+                  >
+                    {entry.is_pinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />}
+                  </button>
                   <button
                     onClick={() => onEdit(entry)}
                     className="p-2 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"

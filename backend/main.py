@@ -87,13 +87,17 @@ def read_entries(
             raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
         stmt = stmt.where(func.date(DiaryEntry.created_at) == filter_day.isoformat())
 
-    stmt = stmt.offset(offset).limit(limit).order_by(DiaryEntry.created_at.desc())
+    stmt = stmt.offset(offset).limit(limit).order_by(
+        DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc()
+    )
     return session.exec(stmt).all()
 
 
 @router.get("/entries/export/", response_model=List[DiaryEntry])
 def export_entries(session: Session = Depends(get_session)):
-    stmt = select(DiaryEntry).order_by(DiaryEntry.created_at.desc())
+    stmt = select(DiaryEntry).order_by(
+        DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc()
+    )
     return session.exec(stmt).all()
 
 
@@ -131,8 +135,24 @@ def search_entries(
             raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
         stmt = stmt.where(func.date(DiaryEntry.created_at) == filter_day.isoformat())
 
-    stmt = stmt.offset(offset).limit(limit).order_by(DiaryEntry.created_at.desc())
+    stmt = stmt.offset(offset).limit(limit).order_by(
+        DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc()
+    )
     return session.exec(stmt).all()
+
+
+@router.patch("/entries/{entry_id}/pin", response_model=DiaryEntry)
+def toggle_pin_entry(entry_id: int, session: Session = Depends(get_session)):
+    entry = session.get(DiaryEntry, entry_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    entry.is_pinned = not entry.is_pinned
+    entry.pinned_at = datetime.now(timezone.utc) if entry.is_pinned else None
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+    return entry
+
 
 @router.get("/entries/{entry_id}", response_model=DiaryEntry)
 def read_entry(entry_id: int, session: Session = Depends(get_session)):

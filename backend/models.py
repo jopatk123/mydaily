@@ -19,12 +19,16 @@ class DiaryEntryCreate(DiaryEntryBase):
 class DiaryEntryUpdate(SQLModel):
     title: Optional[str] = None
     content: Optional[str] = None
+    is_pinned: Optional[bool] = None
+    pinned_at: Optional[datetime] = None
 
 
 class DiaryEntry(DiaryEntryBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+    is_pinned: bool = Field(default=False)
+    pinned_at: Optional[datetime] = Field(default=None)
 
 
 class TodoBase(SQLModel):

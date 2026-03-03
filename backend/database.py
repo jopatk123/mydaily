@@ -20,6 +20,24 @@ engine = create_engine(sqlite_url, connect_args=connect_args)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
+    _migrate_add_pin_columns()
+
+
+def _migrate_add_pin_columns():
+    """为已有数据库添加置顶字段（兼容迁移）。"""
+    from sqlalchemy import text
+    alter_stmts = [
+        "ALTER TABLE diaryentry ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE diaryentry ADD COLUMN pinned_at DATETIME",
+    ]
+    with Session(engine) as session:
+        for stmt in alter_stmts:
+            try:
+                session.exec(text(stmt))
+                session.commit()
+            except Exception:
+                # 列已存在时 SQLite 会报错，忽略即可
+                session.rollback()
 
 def get_session():
     with Session(engine) as session:

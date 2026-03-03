@@ -80,6 +80,15 @@ export async function del(path) {
   return res.json();
 }
 
+export async function patch(path) {
+  const res = await request(path, { method: 'PATCH' });
+  return res.json();
+}
+
+export async function pinEntry(id) {
+  return patch(`/entries/${id}/pin`);
+}
+
 export async function login(password) {
   const res = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',

@@ -127,6 +127,24 @@ function App() {
     }
   };
 
+  const handlePin = async (id) => {
+    try {
+      const updated = await api.pinEntry(id);
+      setEntries((prev) =>
+        prev
+          .map((e) => (e.id === id ? updated : e))
+          .sort((a, b) => {
+            if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+            return new Date(b.created_at) - new Date(a.created_at);
+          })
+      );
+    } catch (error) {
+      if (error.status === 401) return handleAuthExpired();
+      console.error('Error pinning entry:', error);
+      window.alert('操作失败，请稍后重试。');
+    }
+  };
+
   const handleExportAll = async () => {
     if (!isAuthed || isExporting) return;
     setIsExporting(true);
@@ -264,6 +282,7 @@ function App() {
                 searchQuery={searchQuery}
                 onEdit={startEdit}
                 onDelete={handleDelete}
+                onPin={handlePin}
                 onCreate={startCreate}
               />
             )}

@@ -10,6 +10,7 @@ exclude = '''
   | \.mypy_cache
   | \.tox
   | \.venv
+  | venv
   | _build
   | buck-out
   | build
@@ -20,6 +21,7 @@ exclude = '''
 [tool.isort]
 profile = "black"
 line_length = 120
+skip = ["venv", ".venv"]
 
 [tool.pytest.ini_options]
 testpaths = ["."]

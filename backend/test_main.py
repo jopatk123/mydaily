@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 
-from models import DiaryEntry, Todo
-
+from models import DiaryEntry
 
 # ========== Auth Tests ==========
+
 
 def test_login_success(login_client):
     response = login_client.post("/auth/login", json={"password": "asd123123123"})
@@ -25,6 +25,7 @@ def test_login_rate_limit(login_client):
 
 
 # ========== Diary Entry Tests ==========
+
 
 def test_create_entry(client):
     response = client.post(
@@ -246,6 +247,7 @@ def test_export_entries(client):
 
 
 # ========== Todo Tests ==========
+
 
 def test_create_todo(client):
     response = client.post(

@@ -17,6 +17,9 @@ if (!globalThis.localStorage || typeof globalThis.localStorage.setItem !== 'func
 }
 
 // jsdom does not implement scrollTo; provide a no-op to suppress not-implemented errors
-if (!window.scrollTo) {
-	window.scrollTo = () => {};
+window.scrollTo = () => {};
+
+// Prevent jsdom from trying to navigate when tests trigger anchor clicks.
+if (typeof HTMLAnchorElement !== 'undefined') {
+  HTMLAnchorElement.prototype.click = () => {};
 }

@@ -1,6 +1,7 @@
-from typing import Optional
-from sqlmodel import Field, SQLModel
 from datetime import datetime, timezone
+from typing import Optional
+
+from sqlmodel import Field, SQLModel
 
 
 def utc_now() -> datetime:

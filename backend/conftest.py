@@ -1,11 +1,11 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import SQLModel, create_engine, Session
+from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
-from main import app
+from auth import login_limiter, verify_auth
 from database import get_session
-from auth import verify_auth, login_limiter
+from main import app
 
 
 @pytest.fixture(name="session")
@@ -35,6 +35,7 @@ def client_fixture(session: Session):
 @pytest.fixture(name="login_client")
 def login_client_fixture(session: Session):
     """A client that does NOT bypass auth — used for testing the login endpoint."""
+
     def get_session_override():
         yield session
 

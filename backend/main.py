@@ -1,22 +1,28 @@
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, Depends, HTTPException, APIRouter, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from sqlmodel import Session, select
-from typing import List
 from datetime import date as dt_date
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import List
+
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import func, or_
+from sqlmodel import Session, select
+
+from auth import MYDAILY_PASSWORD, generate_token, login_limiter, verify_auth
 from database import create_db_and_tables, get_session
 from models import (
-    DiaryEntry, DiaryEntryCreate, DiaryEntryUpdate,
-    Todo, TodoCreate, TodoUpdate,
-    LoginRequest, LoginResponse,
+    DiaryEntry,
+    DiaryEntryCreate,
+    DiaryEntryUpdate,
+    LoginRequest,
+    LoginResponse,
+    Todo,
+    TodoCreate,
+    TodoUpdate,
 )
-from auth import MYDAILY_PASSWORD, generate_token, verify_auth, login_limiter
-from fastapi.middleware.cors import CORSMiddleware
-from pathlib import Path
-from sqlalchemy import or_, func
 
 
 def _escape_like(value: str) -> str:
@@ -66,6 +72,7 @@ def login(body: LoginRequest, request: Request):
 
 router = APIRouter(dependencies=[Depends(verify_auth)])
 
+
 @router.post("/entries/", response_model=DiaryEntry)
 def create_entry(entry: DiaryEntryCreate, session: Session = Depends(get_session)):
     db_entry = DiaryEntry(title=entry.title, content=entry.content)
@@ -73,6 +80,7 @@ def create_entry(entry: DiaryEntryCreate, session: Session = Depends(get_session
     session.commit()
     session.refresh(db_entry)
     return db_entry
+
 
 @router.get("/entries/", response_model=List[DiaryEntry])
 def read_entries(
@@ -90,17 +98,13 @@ def read_entries(
             raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
         stmt = stmt.where(func.date(DiaryEntry.created_at) == filter_day.isoformat())
 
-    stmt = stmt.offset(offset).limit(limit).order_by(
-        DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc()
-    )
+    stmt = stmt.offset(offset).limit(limit).order_by(DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc())
     return session.exec(stmt).all()
 
 
 @router.get("/entries/export/", response_model=List[DiaryEntry])
 def export_entries(session: Session = Depends(get_session)):
-    stmt = select(DiaryEntry).order_by(
-        DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc()
-    )
+    stmt = select(DiaryEntry).order_by(DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc())
     return session.exec(stmt).all()
 
 
@@ -138,9 +142,7 @@ def search_entries(
             raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
         stmt = stmt.where(func.date(DiaryEntry.created_at) == filter_day.isoformat())
 
-    stmt = stmt.offset(offset).limit(limit).order_by(
-        DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc()
-    )
+    stmt = stmt.offset(offset).limit(limit).order_by(DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc())
     return session.exec(stmt).all()
 
 
@@ -179,6 +181,7 @@ def update_entry(entry_id: int, payload: DiaryEntryUpdate, session: Session = De
     session.refresh(entry)
     return entry
 
+
 @router.delete("/entries/{entry_id}")
 def delete_entry(entry_id: int, session: Session = Depends(get_session)):
     entry = session.get(DiaryEntry, entry_id)
@@ -199,9 +202,7 @@ def create_todo(todo: TodoCreate, session: Session = Depends(get_session)):
 
 
 @router.get("/todos/", response_model=List[Todo])
-def read_todos(
-    session: Session = Depends(get_session)
-):
+def read_todos(session: Session = Depends(get_session)):
     # Sort by created_at desc (newest first)
     todos = session.exec(select(Todo).order_by(Todo.created_at.desc())).all()
     return todos
@@ -212,11 +213,11 @@ def update_todo(todo_id: int, todo: TodoUpdate, session: Session = Depends(get_s
     db_todo = session.get(Todo, todo_id)
     if not db_todo:
         raise HTTPException(status_code=404, detail="Todo not found")
-    
+
     todo_data = todo.model_dump(exclude_unset=True)
     for key, value in todo_data.items():
         setattr(db_todo, key, value)
-    
+
     session.add(db_todo)
     session.commit()
     session.refresh(db_todo)
@@ -241,13 +242,13 @@ app.include_router(router)
 static_path = Path(__file__).parent / "static"
 if static_path.exists():
     app.mount("/assets", StaticFiles(directory=str(static_path / "assets")), name="assets")
-    
+
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         # API 路由已经在上面定义，这里处理前端路由
         if full_path.startswith(("entries", "todos", "auth")):
             raise HTTPException(status_code=404)
-        
+
         file_path = static_path / full_path
         if file_path.is_file():
             return FileResponse(file_path)

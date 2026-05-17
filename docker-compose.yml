@@ -7,8 +7,10 @@ services:
       - "5555:8000"
     environment:
       - PYTHONUNBUFFERED=1
-      # Set MYDAILY_PASSWORD to override the default authentication password
+      # Override the default login password (strongly recommended for production)
       # - MYDAILY_PASSWORD=your-secure-password
+      # Override the token-signing secret (strongly recommended for production)
+      # - MYDAILY_SECRET_KEY=your-random-secret-key
     volumes:
       - mydaily-db:/app/data
     restart: always                  # 容器崩溃自动重启，高可用

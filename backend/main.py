@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends, HTTPException, APIRouter
+from fastapi import FastAPI, Depends, HTTPException, APIRouter, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select
@@ -13,7 +13,7 @@ from models import (
     Todo, TodoCreate, TodoUpdate,
     LoginRequest, LoginResponse,
 )
-from auth import MYDAILY_PASSWORD, generate_token, verify_auth
+from auth import MYDAILY_PASSWORD, generate_token, verify_auth, login_limiter
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from sqlalchemy import or_, func
@@ -51,9 +51,12 @@ app.add_middleware(
 
 
 @app.post("/auth/login", response_model=LoginResponse)
-def login(body: LoginRequest):
+def login(body: LoginRequest, request: Request):
     import hmac as _hmac
 
+    client_ip = request.client.host if request.client else "unknown"
+    if not login_limiter.is_allowed(client_ip):
+        raise HTTPException(status_code=429, detail="请求过于频繁，请稍后重试")
     if not _hmac.compare_digest(body.password, MYDAILY_PASSWORD):
         raise HTTPException(status_code=401, detail="密码不正确")
     return LoginResponse(token=generate_token(body.password))

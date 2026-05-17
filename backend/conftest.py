@@ -5,7 +5,7 @@ from sqlmodel.pool import StaticPool
 
 from main import app
 from database import get_session
-from auth import verify_auth
+from auth import verify_auth, login_limiter
 
 
 @pytest.fixture(name="session")
@@ -30,3 +30,22 @@ def client_fixture(session: Session):
     client = TestClient(app)
     yield client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(name="login_client")
+def login_client_fixture(session: Session):
+    """A client that does NOT bypass auth — used for testing the login endpoint."""
+    def get_session_override():
+        yield session
+
+    app.dependency_overrides[get_session] = get_session_override
+    client = TestClient(app)
+    yield client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Reset the login rate limiter before every test to prevent state bleed."""
+    login_limiter.reset()
+    yield

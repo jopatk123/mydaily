@@ -16,5 +16,14 @@ module.exports = {
       'warn',
       { allowConstantExport: true },
     ],
+    // No TypeScript in this project — prop-types validation is redundant
+    'react/prop-types': 'off',
   },
+  overrides: [
+    {
+      // Test files run in Node/jsdom via vitest; allow global, process, etc.
+      files: ['**/*.test.{js,jsx}', 'src/test/setup.js'],
+      env: { node: true },
+    },
+  ],
 }

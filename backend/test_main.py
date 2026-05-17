@@ -1,6 +1,31 @@
 from datetime import datetime, timezone
 
 from models import DiaryEntry, Todo
+
+
+# ========== Auth Tests ==========
+
+def test_login_success(login_client):
+    response = login_client.post("/auth/login", json={"password": "asd123123123"})
+    assert response.status_code == 200
+    assert "token" in response.json()
+
+
+def test_login_wrong_password(login_client):
+    response = login_client.post("/auth/login", json={"password": "wrongpassword"})
+    assert response.status_code == 401
+
+
+def test_login_rate_limit(login_client):
+    """After 10 failed attempts, the 11th should be rate-limited (HTTP 429)."""
+    for _ in range(10):
+        login_client.post("/auth/login", json={"password": "wrong"})
+    response = login_client.post("/auth/login", json={"password": "wrong"})
+    assert response.status_code == 429
+
+
+# ========== Diary Entry Tests ==========
+
 def test_create_entry(client):
     response = client.post(
         "/entries/",

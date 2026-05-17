@@ -284,12 +284,6 @@ describe('TodoPanel', () => {
     render(<TodoPanel />);
     
     await waitFor(() => {
-      const items = screen.getAllByRole('button').filter(btn => 
-        btn.textContent.includes('完成测试') || 
-        btn.textContent.includes('写文档') || 
-        btn.textContent.includes('已完成的任务')
-      );
-      
       // 检查顺序：未完成的在前
       const texts = Array.from(document.querySelectorAll('.text-sm.truncate'))
         .map(el => el.textContent);

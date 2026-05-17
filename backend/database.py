@@ -25,7 +25,7 @@ def create_db_and_tables():
 
 def _migrate_add_pin_columns():
     """为已有数据库添加置顶字段（兼容迁移）。"""
-    from sqlalchemy import text
+    from sqlalchemy import exc as sa_exc, text
     alter_stmts = [
         "ALTER TABLE diaryentry ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE diaryentry ADD COLUMN pinned_at DATETIME",
@@ -35,9 +35,14 @@ def _migrate_add_pin_columns():
             try:
                 session.exec(text(stmt))
                 session.commit()
-            except Exception:
-                # 列已存在时 SQLite 会报错，忽略即可
-                session.rollback()
+            except sa_exc.OperationalError as e:
+                # SQLite raises OperationalError when the column already exists;
+                # that is expected and safe to ignore.
+                if "already has column" in str(e).lower() or "duplicate column" in str(e).lower():
+                    session.rollback()
+                else:
+                    session.rollback()
+                    raise
 
 def get_session():
     with Session(engine) as session:

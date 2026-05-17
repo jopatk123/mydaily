@@ -23,8 +23,8 @@ help:
 	@echo "  docker-logs    View Docker container logs"
 
 install:
-	cd backend && pip install -r requirements.txt
-	cd backend && pip install pytest pytest-cov httpx black isort flake8
+	cd backend && python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
+	cd backend && ./venv/bin/pip install pytest pytest-cov httpx black isort flake8
 	cd frontend && npm install
 
 dev:
@@ -47,7 +47,11 @@ dev-frontend:
 test: test-backend test-frontend
 
 test-backend:
-	cd backend && pytest -v --cov=. --cov-report=term-missing
+	@if [ -x backend/venv/bin/pytest ]; then \
+		cd backend && ./venv/bin/pytest -v --cov=. --cov-report=term-missing; \
+	else \
+		cd backend && python3 -m pytest -v --cov=. --cov-report=term-missing; \
+	fi
 
 test-frontend:
 	cd frontend && npm run test
@@ -55,16 +59,24 @@ test-frontend:
 lint: lint-backend lint-frontend
 
 lint-backend:
-	cd backend && black --check .
-	cd backend && isort --check-only --profile black .
-	cd backend && flake8 --max-line-length=120 --ignore=E501,W503 .
+	@if [ -x backend/venv/bin/black ]; then \
+		cd backend && ./venv/bin/black --check . && \
+		./venv/bin/isort --check-only --profile black . && \
+		./venv/bin/flake8 --max-line-length=120 --ignore=E501,W503 .; \
+	else \
+		cd backend && black --check . && isort --check-only --profile black . && \
+		flake8 --max-line-length=120 --ignore=E501,W503 .; \
+	fi
 
 lint-frontend:
 	cd frontend && npm run lint
 
 format:
-	cd backend && black .
-	cd backend && isort --profile black .
+	@if [ -x backend/venv/bin/black ]; then \
+		cd backend && ./venv/bin/black . && ./venv/bin/isort --profile black .; \
+	else \
+		cd backend && black . && isort --profile black .; \
+	fi
 
 build:
 	cd frontend && npm run build

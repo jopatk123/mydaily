@@ -188,7 +188,7 @@ describe('App', () => {
     mockFetchByUrl([
       ['/entries/dates/', () => Promise.resolve(createFetchResponse([todayYmd]))],
       // initial load (all)
-      [new RegExp('/entries/\/?$'), () => Promise.resolve(createFetchResponse([
+      [new RegExp('/entries/?$'), () => Promise.resolve(createFetchResponse([
         { id: 1, title: 'A', content: '...', created_at: `${todayYmd}T12:00:00` },
         { id: 2, title: 'B', content: '...', created_at: `${tomorrowYmd}T12:00:00` },
       ]))],

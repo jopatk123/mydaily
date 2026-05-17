@@ -34,22 +34,7 @@ function App() {
     setIsAuthed(false);
   }, []);
 
-  useEffect(() => {
-    if (!isAuthed) return;
-    fetchMarkedDates();
-  }, [isAuthed]);
-
-  useEffect(() => {
-    if (!isAuthed) return;
-    const q = searchQuery.trim();
-    const handle = window.setTimeout(() => {
-      fetchEntries({ q: q || null, date: selectedDate });
-    }, 250);
-
-    return () => window.clearTimeout(handle);
-  }, [searchQuery, selectedDate, isAuthed]);
-
-  const fetchEntries = async ({ q = null, date = null } = {}) => {
+  const fetchEntries = useCallback(async ({ q = null, date = null } = {}) => {
     const fetchSeq = ++lastFetchSeq.current;
     setIsLoadingEntries(true);
     try {
@@ -72,9 +57,9 @@ function App() {
         setIsLoadingEntries(false);
       }
     }
-  };
+  }, [handleAuthExpired]);
 
-  const fetchMarkedDates = async () => {
+  const fetchMarkedDates = useCallback(async () => {
     try {
       const data = await api.get('/entries/dates/');
       setMarkedDates(Array.isArray(data) ? data : []);
@@ -82,7 +67,22 @@ function App() {
       if (error.status === 401) return handleAuthExpired();
       console.error('Error fetching marked dates:', error);
     }
-  };
+  }, [handleAuthExpired]);
+
+  useEffect(() => {
+    if (!isAuthed) return;
+    fetchMarkedDates();
+  }, [isAuthed, fetchMarkedDates]);
+
+  useEffect(() => {
+    if (!isAuthed) return;
+    const q = searchQuery.trim();
+    const handle = window.setTimeout(() => {
+      fetchEntries({ q: q || null, date: selectedDate });
+    }, 250);
+
+    return () => window.clearTimeout(handle);
+  }, [searchQuery, selectedDate, isAuthed, fetchEntries]);
 
   const handleSearch = async (e) => {
     e.preventDefault();

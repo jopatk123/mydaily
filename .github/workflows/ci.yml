@@ -73,8 +73,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build backend image
-        run: docker build -t mydaily-backend ./backend
-
-      - name: Build frontend image
-        run: docker build -t mydaily-frontend ./frontend
+      - name: Build Docker image
+        run: docker build -t mydaily:latest .

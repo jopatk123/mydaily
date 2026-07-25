@@ -21,8 +21,13 @@ module.exports = {
   },
   overrides: [
     {
-      // Test files run in Node/jsdom via vitest; allow global, process, etc.
-      files: ['**/*.test.{js,jsx}', 'src/test/setup.js'],
+      // Test files (and test helpers) run in Node/jsdom via vitest; allow global, process, etc.
+      files: ['**/*.test.{js,jsx}', 'src/test/**/*.js', 'src/**/test/**/*.js'],
+      env: { node: true },
+    },
+    {
+      // Build/config files run in Node (vite.config.js, postcss.config.js, tailwind.config.js)
+      files: ['*.config.js'],
       env: { node: true },
     },
   ],

@@ -1,8 +1,8 @@
 services:
   mydaily:
     container_name: mydaily          # 容器运行后的名称
-    build: .                         # 从当前目录Dockerfile构建镜像
-    image: mydaily:latest              # ✅ 手动指定镜像的仓库名+标签，核心配置
+    build: .                         # 从当前目录 Dockerfile 构建镜像
+    image: mydaily:latest            # 手动指定镜像的仓库名+标签
     ports:
       - "5555:8000"
     environment:
@@ -11,11 +11,27 @@ services:
       # - MYDAILY_PASSWORD=your-secure-password
       # Override the token-signing secret (strongly recommended for production)
       # - MYDAILY_SECRET_KEY=your-random-secret-key
+      # Override the token TTL (defaults to 30 days, in seconds)
+      # - MYDAILY_TOKEN_TTL_SECONDS=2592000
+      # Override CORS origins (comma-separated)
+      # - MYDAILY_CORS_ORIGINS=https://your-domain.example.com
     volumes:
       - mydaily-db:/app/data
-    restart: always                  # 容器崩溃自动重启，高可用
+    restart: unless-stopped          # 容器崩溃自动重启（手动停止后不重启）
     networks:
       - mydaily-net
+    # 资源限制：避免单容器吃满宿主机资源
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    # 日志轮转：避免日志撑爆磁盘
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   mydaily-db:

@@ -35,7 +35,7 @@ describe('App', () => {
     fetch.mockReset();
     localStorage.setItem(
       AUTH_STORAGE_KEY,
-      JSON.stringify({ token: 'test-token', expiresAt: Date.now() + 1000 * 60 * 60 * 24 })
+      JSON.stringify({ token: 'test-token', expiresAt: Date.now() + 1000 * 60 * 60 * 24 }),
     );
   });
 
@@ -73,9 +73,12 @@ describe('App', () => {
     fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'asd123123123' } });
     fireEvent.click(screen.getByText('进入'));
 
-    await waitFor(() => {
-      expect(screen.getByText('MyDaily')).toBeInTheDocument();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('MyDaily')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
   });
 
   it('shows empty state when no entries', async () => {
@@ -84,25 +87,31 @@ describe('App', () => {
       ['/entries/', () => Promise.resolve(createFetchResponse([]))],
     ]);
     render(<App />);
-    await waitFor(() => {
-      expect(screen.getByText('还没有日记呢。开始写下第一篇吧！')).toBeInTheDocument();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('还没有日记呢。开始写下第一篇吧！')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
   });
 
   it('renders entries from API', async () => {
     const mockEntries = [
-      { id: 1, title: 'Test Entry', content: 'Test content', created_at: '2024-01-01T12:00:00' }
+      { id: 1, title: 'Test Entry', content: 'Test content', created_at: '2024-01-01T12:00:00' },
     ];
     mockFetchByUrl([
       ['/entries/dates/', () => Promise.resolve(createFetchResponse(['2024-01-01']))],
       ['/entries/', () => Promise.resolve(createFetchResponse(mockEntries))],
     ]);
-    
+
     render(<App />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Test Entry')).toBeInTheDocument();
-    }, { timeout: 2000 });
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('Test Entry')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
   });
 
   it('opens create form when clicking New Entry button', async () => {
@@ -111,34 +120,41 @@ describe('App', () => {
       ['/entries/', () => Promise.resolve(createFetchResponse([]))],
     ]);
     render(<App />);
-    
+
     const newButton = screen.getByText('新建日记');
     fireEvent.click(newButton);
-    
+
     expect(screen.getByLabelText('标题')).toBeInTheDocument();
     expect(screen.getByLabelText('内容')).toBeInTheDocument();
   });
 
   it('submits new entry form', async () => {
-    const entriesAfter = [{ id: 1, title: 'New', content: 'Content', created_at: '2024-01-01T00:00:00' }];
+    const entriesAfter = [
+      { id: 1, title: 'New', content: 'Content', created_at: '2024-01-01T00:00:00' },
+    ];
     mockFetchByUrl([
       ['/entries/dates/', () => Promise.resolve(createFetchResponse([]))],
-      [new RegExp('/entries/$'), (_url, options) => {
-        if (options?.method === 'POST') {
-          return Promise.resolve(createFetchResponse({ id: 1, title: 'New', content: 'Content' }));
-        }
-        return Promise.resolve(createFetchResponse(entriesAfter));
-      }],
+      [
+        new RegExp('/entries/$'),
+        (_url, options) => {
+          if (options?.method === 'POST') {
+            return Promise.resolve(
+              createFetchResponse({ id: 1, title: 'New', content: 'Content' }),
+            );
+          }
+          return Promise.resolve(createFetchResponse(entriesAfter));
+        },
+      ],
     ]);
-    
+
     render(<App />);
-    
+
     fireEvent.click(screen.getByText('新建日记'));
-    
+
     fireEvent.change(screen.getByLabelText('标题'), { target: { value: 'New' } });
     fireEvent.change(screen.getByLabelText('内容'), { target: { value: 'Content' } });
     fireEvent.click(screen.getByText('发布日记'));
-    
+
     await waitFor(() => {
       // initial /entries + initial /entries/dates + POST /entries + refetch /entries + refetch /entries/dates
       expect(fetch).toHaveBeenCalled();
@@ -148,7 +164,15 @@ describe('App', () => {
   it('searches entries by query in realtime (debounced)', async () => {
     mockFetchByUrl([
       ['/entries/dates/', () => Promise.resolve(createFetchResponse([]))],
-      ['/entries/search/', () => Promise.resolve(createFetchResponse([{ id: 9, title: 'Match', content: '...', created_at: '2024-01-01T12:00:00' }]))],
+      [
+        '/entries/search/',
+        () =>
+          Promise.resolve(
+            createFetchResponse([
+              { id: 9, title: 'Match', content: '...', created_at: '2024-01-01T12:00:00' },
+            ]),
+          ),
+      ],
       ['/entries/', () => Promise.resolve(createFetchResponse([]))],
     ]);
 
@@ -156,25 +180,47 @@ describe('App', () => {
 
     fireEvent.change(screen.getByLabelText('搜索'), { target: { value: 'Match' } });
 
-    await waitFor(() => {
-      expect(screen.getByText('Match')).toBeInTheDocument();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Match')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
   });
 
   it('blank search falls back to entries list', async () => {
     mockFetchByUrl([
       ['/entries/dates/', () => Promise.resolve(createFetchResponse([]))],
-      ['/entries/search/', () => Promise.resolve(createFetchResponse([{ id: 99, title: 'ShouldNotShow', content: '...', created_at: '2024-01-01T12:00:00' }]))],
-      ['/entries/', () => Promise.resolve(createFetchResponse([{ id: 1, title: 'List Item', content: '...', created_at: '2024-01-01T12:00:00' }]))],
+      [
+        '/entries/search/',
+        () =>
+          Promise.resolve(
+            createFetchResponse([
+              { id: 99, title: 'ShouldNotShow', content: '...', created_at: '2024-01-01T12:00:00' },
+            ]),
+          ),
+      ],
+      [
+        '/entries/',
+        () =>
+          Promise.resolve(
+            createFetchResponse([
+              { id: 1, title: 'List Item', content: '...', created_at: '2024-01-01T12:00:00' },
+            ]),
+          ),
+      ],
     ]);
 
     render(<App />);
 
     fireEvent.change(screen.getByLabelText('搜索'), { target: { value: '   ' } });
 
-    await waitFor(() => {
-      expect(screen.getByText('List Item')).toBeInTheDocument();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('List Item')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
     expect(screen.queryByText('ShouldNotShow')).not.toBeInTheDocument();
   });
 
@@ -188,34 +234,52 @@ describe('App', () => {
     mockFetchByUrl([
       ['/entries/dates/', () => Promise.resolve(createFetchResponse([todayYmd]))],
       // initial load (all)
-      [new RegExp('/entries/?$'), () => Promise.resolve(createFetchResponse([
-        { id: 1, title: 'A', content: '...', created_at: `${todayYmd}T12:00:00` },
-        { id: 2, title: 'B', content: '...', created_at: `${tomorrowYmd}T12:00:00` },
-      ]))],
+      [
+        new RegExp('/entries/?$'),
+        () =>
+          Promise.resolve(
+            createFetchResponse([
+              { id: 1, title: 'A', content: '...', created_at: `${todayYmd}T12:00:00` },
+              { id: 2, title: 'B', content: '...', created_at: `${tomorrowYmd}T12:00:00` },
+            ]),
+          ),
+      ],
       // date-filtered load
-      ['/entries/?date=', () => Promise.resolve(createFetchResponse([
-        { id: 1, title: 'A', content: '...', created_at: `${todayYmd}T12:00:00` },
-      ]))],
+      [
+        '/entries/?date=',
+        () =>
+          Promise.resolve(
+            createFetchResponse([
+              { id: 1, title: 'A', content: '...', created_at: `${todayYmd}T12:00:00` },
+            ]),
+          ),
+      ],
     ]);
 
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByText('A')).toBeInTheDocument();
-      expect(screen.getByText('B')).toBeInTheDocument();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('A')).toBeInTheDocument();
+        expect(screen.getByText('B')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
 
     fireEvent.click(screen.getByLabelText(`选择日期 ${todayYmd}`));
 
-    await waitFor(() => {
-      expect(screen.getByText('A')).toBeInTheDocument();
-      expect(screen.queryByText('B')).not.toBeInTheDocument();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('A')).toBeInTheDocument();
+        expect(screen.queryByText('B')).not.toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
   });
 
   it('opens edit form when clicking edit button', async () => {
     const mockEntries = [
-      { id: 1, title: 'Edit Me', content: 'Original', created_at: '2024-01-01T12:00:00' }
+      { id: 1, title: 'Edit Me', content: 'Original', created_at: '2024-01-01T12:00:00' },
     ];
     mockFetchByUrl([
       ['/entries/dates/', () => Promise.resolve(createFetchResponse(['2024-01-01']))],
@@ -224,9 +288,12 @@ describe('App', () => {
 
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Edit Me')).toBeInTheDocument();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Edit Me')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
 
     fireEvent.click(screen.getByLabelText('编辑日记'));
 
@@ -237,7 +304,15 @@ describe('App', () => {
   it('exports all entries', async () => {
     mockFetchByUrl([
       ['/entries/dates/', () => Promise.resolve(createFetchResponse([]))],
-      ['/entries/export/', () => Promise.resolve(createFetchResponse([{ id: 1, title: 'A', content: 'B', created_at: '2024-01-01T00:00:00' }]))],
+      [
+        '/entries/export/',
+        () =>
+          Promise.resolve(
+            createFetchResponse([
+              { id: 1, title: 'A', content: 'B', created_at: '2024-01-01T00:00:00' },
+            ]),
+          ),
+      ],
       ['/entries/', () => Promise.resolve(createFetchResponse([]))],
     ]);
 
@@ -249,7 +324,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/entries/export/'),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
   });

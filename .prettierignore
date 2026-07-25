@@ -1,0 +1,7 @@
+node_modules
+dist
+build
+coverage
+backend/venv
+**/*.lock
+package-lock.json

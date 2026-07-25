@@ -344,3 +344,204 @@ def test_toggle_todo_completion(client):
     )
     assert response.status_code == 200
     assert response.json()["completed"] is False
+
+
+# ========== Health & Auth Enforcement Tests ==========
+
+
+def test_health_endpoint_no_auth_required(login_client):
+    """未带 token 访问 /health 应该返回 200。"""
+    response = login_client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_protected_route_without_token_returns_401(login_client):
+    """未带 token 访问受保护路由应返回 401。"""
+    response = login_client.get("/entries/")
+    assert response.status_code == 401
+
+
+def test_protected_route_with_malformed_token_returns_401(login_client):
+    """格式错误的 token 应返回 401。"""
+    response = login_client.get(
+        "/entries/",
+        headers={"Authorization": "Bearer not-a-valid-token"},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Malformed token"
+
+
+def test_protected_route_with_wrong_token_returns_401(login_client):
+    """签名不匹配的 token 应返回 401。"""
+    # 构造一个 exp_ts 合法但签名错误的 token
+    import time
+
+    fake_token = f"{int(time.time()) + 3600}.deadbeef"
+    response = login_client.get(
+        "/entries/",
+        headers={"Authorization": f"Bearer {fake_token}"},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid token"
+
+
+def test_expired_token_returns_401(login_client):
+    """过期 token 应返回 401，提示需要重新登录。"""
+    import hashlib
+    import hmac as _hmac
+
+    from auth import MYDAILY_PASSWORD, SECRET_KEY
+
+    past_ts = 1  # 1970 年初，必定已过期
+    payload = f"{MYDAILY_PASSWORD}:{past_ts}".encode()
+    sig = _hmac.new(SECRET_KEY.encode(), payload, hashlib.sha256).hexdigest()
+    expired_token = f"{past_ts}.{sig}"
+
+    response = login_client.get(
+        "/entries/",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Token expired"
+
+
+def test_login_returns_token_with_expiry(login_client):
+    """登录返回的 token 应包含 exp_timestamp 前缀。"""
+    response = login_client.post("/auth/login", json={"password": "asd123123123"})
+    assert response.status_code == 200
+    token = response.json()["token"]
+    assert "." in token
+    exp_str, _ = token.split(".", 1)
+    assert exp_str.isdigit()
+
+
+def test_valid_token_grants_access(login_client):
+    """登录拿到的 token 应能访问受保护路由。"""
+    login_response = login_client.post("/auth/login", json={"password": "asd123123123"})
+    token = login_response.json()["token"]
+
+    response = login_client.get(
+        "/entries/",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+
+
+# ========== Pin Feature Tests ==========
+
+
+def test_toggle_pin_entry(client):
+    create_response = client.post(
+        "/entries/",
+        json={"title": "To Pin", "content": "Will be pinned"},
+    )
+    entry_id = create_response.json()["id"]
+    assert create_response.json()["is_pinned"] is False
+
+    # 置顶
+    pin_response = client.patch(f"/entries/{entry_id}/pin")
+    assert pin_response.status_code == 200
+    pinned = pin_response.json()
+    assert pinned["is_pinned"] is True
+    assert pinned["pinned_at"] is not None
+
+    # 取消置顶
+    unpin_response = client.patch(f"/entries/{entry_id}/pin")
+    assert unpin_response.status_code == 200
+    unpinned = unpin_response.json()
+    assert unpinned["is_pinned"] is False
+    assert unpinned["pinned_at"] is None
+
+
+def test_toggle_pin_entry_not_found(client):
+    response = client.patch("/entries/999/pin")
+    assert response.status_code == 404
+
+
+def test_pinned_entries_sorted_first(client):
+    """置顶日记应排在未置顶日记之前。"""
+    client.post("/entries/", json={"title": "Normal A", "content": "c1"})
+    pinned_resp = client.post("/entries/", json={"title": "Pinned B", "content": "c2"})
+    client.post("/entries/", json={"title": "Normal C", "content": "c3"})
+
+    client.patch(f"/entries/{pinned_resp.json()['id']}/pin")
+
+    response = client.get("/entries/")
+    data = response.json()
+    assert data[0]["title"] == "Pinned B"
+    assert data[0]["is_pinned"] is True
+
+
+# ========== SQL LIKE Escape Tests ==========
+
+
+def test_search_entries_escapes_percent_literal(client):
+    """搜索包含 % 字符的内容时，% 应作为字面量而非通配符。"""
+    client.post("/entries/", json={"title": "discount 50% off", "content": "no keyword"})
+    client.post("/entries/", json={"title": "no match here", "content": "abcdef"})
+
+    response = client.get("/entries/search/", params={"q": "50%"})
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["title"] == "discount 50% off"
+
+
+def test_search_entries_escapes_underscore_literal(client):
+    """搜索包含 _ 字符的内容时，_ 应作为字面量而非单字符通配符。"""
+    client.post("/entries/", json={"title": "foo_bar", "content": "x"})
+    client.post("/entries/", json={"title": "fooxbar", "content": "x"})
+
+    response = client.get("/entries/search/", params={"q": "foo_bar"})
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["title"] == "foo_bar"
+
+
+# ========== Query Validation Tests ==========
+
+
+def test_read_entries_limit_upper_bound(client):
+    """limit 超过 500 应返回 422 校验错误。"""
+    response = client.get("/entries/", params={"limit": 1000})
+    assert response.status_code == 422
+
+
+def test_read_entries_limit_zero_returns_422(client):
+    response = client.get("/entries/", params={"limit": 0})
+    assert response.status_code == 422
+
+
+def test_search_entries_query_too_long_returns_422(client):
+    """搜索关键词超过 200 字符应返回 422。"""
+    response = client.get("/entries/search/", params={"q": "a" * 201})
+    assert response.status_code == 422
+
+
+# ========== Rate Limiter Recovery Tests ==========
+
+
+def test_login_rate_limit_recovers_after_window(login_client, monkeypatch):
+    """限流窗口过后应恢复登录能力。"""
+    # 灌满 10 次失败
+    for _ in range(10):
+        login_client.post("/auth/login", json={"password": "wrong"})
+    # 第 11 次应被限流
+    blocked = login_client.post("/auth/login", json={"password": "wrong"})
+    assert blocked.status_code == 429
+
+    # 模拟时间前进越过窗口期
+    import time
+
+    future = time.time() + 61
+    monkeypatch.setattr(time, "time", lambda: future)
+
+    # 窗口外应能再次尝试（即使是错误密码也应该返回 401 而非 429）
+    response = login_client.post("/auth/login", json={"password": "wrong"})
+    assert response.status_code == 401
+
+    # 正确密码应能成功
+    response = login_client.post("/auth/login", json={"password": "asd123123123"})
+    assert response.status_code == 200

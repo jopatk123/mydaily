@@ -1,10 +1,12 @@
+import hmac
+import os
 from contextlib import asynccontextmanager
 from datetime import date as dt_date
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -30,6 +32,18 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+def _apply_date_filter(stmt, date_str: str):
+    """Apply a ``date=YYYY-MM-DD`` filter to a DiaryEntry select statement.
+
+    Raises HTTPException(400) on invalid date format.
+    """
+    try:
+        filter_day = dt_date.fromisoformat(date_str)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    return stmt.where(func.date(DiaryEntry.created_at) == filter_day.isoformat())
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
@@ -38,11 +52,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-origins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://localhost:8000",
-]
+# CORS origins 可通过环境变量配置，逗号分隔；默认覆盖常见本地开发端口
+_default_origins = "http://localhost:5173,http://localhost:3000,http://localhost:8000"
+_cors_env = os.getenv("MYDAILY_CORS_ORIGINS", _default_origins)
+origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,17 +66,21 @@ app.add_middleware(
 )
 
 
-# ── Public auth endpoint ────────────────────────────────────────────
+# ── Public endpoints ───────────────────────────────────────────────
+
+
+@app.get("/health")
+def health():
+    """Lightweight readiness probe — no auth required."""
+    return {"status": "ok"}
 
 
 @app.post("/auth/login", response_model=LoginResponse)
 def login(body: LoginRequest, request: Request):
-    import hmac as _hmac
-
     client_ip = request.client.host if request.client else "unknown"
     if not login_limiter.is_allowed(client_ip):
         raise HTTPException(status_code=429, detail="请求过于频繁，请稍后重试")
-    if not _hmac.compare_digest(body.password, MYDAILY_PASSWORD):
+    if not hmac.compare_digest(body.password, MYDAILY_PASSWORD):
         raise HTTPException(status_code=401, detail="密码不正确")
     return LoginResponse(token=generate_token(body.password))
 
@@ -84,20 +101,14 @@ def create_entry(entry: DiaryEntryCreate, session: Session = Depends(get_session
 
 @router.get("/entries/", response_model=List[DiaryEntry])
 def read_entries(
-    offset: int = 0,
-    limit: int = 100,
-    date: str | None = None,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    date: Optional[str] = None,
     session: Session = Depends(get_session),
 ):
     stmt = select(DiaryEntry)
-
     if date:
-        try:
-            filter_day = dt_date.fromisoformat(date)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-        stmt = stmt.where(func.date(DiaryEntry.created_at) == filter_day.isoformat())
-
+        stmt = _apply_date_filter(stmt, date)
     stmt = stmt.offset(offset).limit(limit).order_by(DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc())
     return session.exec(stmt).all()
 
@@ -110,17 +121,17 @@ def export_entries(session: Session = Depends(get_session)):
 
 @router.get("/entries/dates/", response_model=List[str])
 def read_entry_dates(session: Session = Depends(get_session)):
-    created_at_values = session.exec(select(DiaryEntry.created_at)).all()
-    dates = sorted({dt.date().isoformat() for dt in created_at_values if dt is not None})
-    return dates
+    # 在 SQL 中做 DISTINCT + 排序，避免把全部 created_at 拉到内存
+    stmt = select(func.date(DiaryEntry.created_at)).distinct().order_by(func.date(DiaryEntry.created_at))
+    return [d for d in session.exec(stmt).all() if d]
 
 
 @router.get("/entries/search/", response_model=List[DiaryEntry])
 def search_entries(
-    q: str,
-    offset: int = 0,
-    limit: int = 100,
-    date: str | None = None,
+    q: str = Query(..., max_length=200),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    date: Optional[str] = None,
     session: Session = Depends(get_session),
 ):
     query = q.strip()
@@ -130,17 +141,13 @@ def search_entries(
     escaped = _escape_like(query)
     stmt = select(DiaryEntry).where(
         or_(
-            DiaryEntry.title.ilike(f"%{escaped}%"),
-            DiaryEntry.content.ilike(f"%{escaped}%"),
+            DiaryEntry.title.ilike(f"%{escaped}%", escape="\\"),
+            DiaryEntry.content.ilike(f"%{escaped}%", escape="\\"),
         )
     )
 
     if date:
-        try:
-            filter_day = dt_date.fromisoformat(date)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-        stmt = stmt.where(func.date(DiaryEntry.created_at) == filter_day.isoformat())
+        stmt = _apply_date_filter(stmt, date)
 
     stmt = stmt.offset(offset).limit(limit).order_by(DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc())
     return session.exec(stmt).all()
@@ -203,7 +210,6 @@ def create_todo(todo: TodoCreate, session: Session = Depends(get_session)):
 
 @router.get("/todos/", response_model=List[Todo])
 def read_todos(session: Session = Depends(get_session)):
-    # Sort by created_at desc (newest first)
     todos = session.exec(select(Todo).order_by(Todo.created_at.desc())).all()
     return todos
 
@@ -246,7 +252,7 @@ if static_path.exists():
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         # API 路由已经在上面定义，这里处理前端路由
-        if full_path.startswith(("entries", "todos", "auth")):
+        if full_path.startswith(("entries", "todos", "auth", "health")):
             raise HTTPException(status_code=404)
 
         file_path = static_path / full_path

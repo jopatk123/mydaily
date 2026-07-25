@@ -14,7 +14,13 @@ import {
 } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
-function CalendarPanel({ calendarMonth, setCalendarMonth, markedDateSet, selectedDate, setSelectedDate }) {
+function CalendarPanel({
+  calendarMonth,
+  setCalendarMonth,
+  markedDateSet,
+  selectedDate,
+  setSelectedDate,
+}) {
   const handleSelectDate = (day) => {
     const dayIso = format(day, 'yyyy-MM-dd');
     setSelectedDate((prev) => (prev === dayIso ? null : dayIso));
@@ -67,7 +73,7 @@ function CalendarPanel({ calendarMonth, setCalendarMonth, markedDateSet, selecte
               </div>
             )}
           </div>
-        </div>
+        </div>,
       );
 
       day = addDays(day, 1);
@@ -100,7 +106,9 @@ function CalendarPanel({ calendarMonth, setCalendarMonth, markedDateSet, selecte
 
           <div className="grid grid-cols-7 gap-1 mt-4 text-xs font-semibold text-gray-400">
             {['一', '二', '三', '四', '五', '六', '日'].map((w) => (
-              <div key={w} className="text-center">{w}</div>
+              <div key={w} className="text-center">
+                {w}
+              </div>
             ))}
           </div>
 

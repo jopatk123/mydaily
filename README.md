@@ -73,10 +73,17 @@ cp .env.example .env
 
 | 变量 | 说明 | 默认值 |
 |---|---|---|
-| `MYDAILY_PASSWORD` | 登录密码 | `asd123123123`（**请务必修改**） |
-| `MYDAILY_SECRET_KEY` | Token 签名密钥 | `mydaily-default-secret-key`（**请务必修改**） |
+| `MYDAILY_PASSWORD` | 登录密码 | 空（本地 `./start.sh` 首次运行自动生成） |
+| `MYDAILY_SECRET_KEY` | Token 签名密钥 | 空（本地 `./start.sh` 首次运行自动生成） |
+| `MYDAILY_TOKEN_TTL_SECONDS` | Token 有效期（秒） | `2592000`（30 天） |
+| `MYDAILY_AUTH_DISABLED` | 显式禁用认证（仅密码为空时生效） | `false` |
+| `MYDAILY_CORS_ORIGINS` | 允许的 CORS 源（逗号分隔） | `http://localhost:5173,http://localhost:3000,http://localhost:8000` |
+| `MYDAILY_DATA_DIR` | SQLite 数据目录 | Docker 内 `/app/data`；本地 `./data` |
 
-> ⚠️ **安全提示：** 默认密码和密钥仅用于本地测试。生产部署时，必须通过环境变量或 `.env` 文件覆盖这两个值。
+> ⚠️ **安全提示：**
+> - 默认密码与默认 SECRET_KEY 仅用于本地快速启动，生产部署必须通过环境变量覆盖。
+> - 若 `MYDAILY_PASSWORD` 留空，后端会拒绝启动，除非显式设置 `MYDAILY_AUTH_DISABLED=true`。
+> - Token 现在携带过期时间戳，过期后前端会自动登出并要求重新登录。
 
 ---
 

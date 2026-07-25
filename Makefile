@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-local dev-backend dev-frontend test lint build clean docker-up docker-down docker-logs
+.PHONY: help install dev dev-local dev-backend dev-frontend test test-backend test-frontend lint lint-backend lint-frontend format build clean docker-up docker-down docker-logs
 
 help:
 	@echo "MyDaily Development Commands"
@@ -34,7 +34,7 @@ dev-local:
 	@echo "Starting local development servers..."
 	@echo "Backend will run on http://localhost:8000"
 	@echo "Frontend will run on http://localhost:5173"
-	@bash scripts/dev-local.sh
+	@bash start.sh
 
 dev-backend:
 	@echo "Starting backend server on http://localhost:8000"
@@ -77,6 +77,7 @@ format:
 	else \
 		cd backend && black . && isort --profile black .; \
 	fi
+	cd frontend && npm run format
 
 build:
 	cd frontend && npm run build

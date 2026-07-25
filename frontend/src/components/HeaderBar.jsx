@@ -26,15 +26,19 @@ function HeaderBar({ isCreating, isEditing, onToggleCreate, onExportAll, isExpor
         <button
           onClick={onToggleCreate}
           className={`inline-flex items-center px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-            isCreating 
-              ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500' 
+            isCreating
+              ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500'
               : 'text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
           }`}
         >
           {isCreating ? (
-            <><X className="h-4 w-4 mr-2" /> {isEditing ? '取消编辑' : '取消'}</>
+            <>
+              <X className="h-4 w-4 mr-2" /> {isEditing ? '取消编辑' : '取消'}
+            </>
           ) : (
-            <><Plus className="h-4 w-4 mr-2" /> 新建日记</>
+            <>
+              <Plus className="h-4 w-4 mr-2" /> 新建日记
+            </>
           )}
         </button>
       </div>

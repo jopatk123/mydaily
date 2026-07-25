@@ -20,8 +20,6 @@ class DiaryEntryCreate(DiaryEntryBase):
 class DiaryEntryUpdate(SQLModel):
     title: Optional[str] = None
     content: Optional[str] = None
-    is_pinned: Optional[bool] = None
-    pinned_at: Optional[datetime] = None
 
 
 class DiaryEntry(DiaryEntryBase, table=True):

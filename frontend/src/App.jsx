@@ -34,30 +34,33 @@ function App() {
     setIsAuthed(false);
   }, []);
 
-  const fetchEntries = useCallback(async ({ q = null, date = null } = {}) => {
-    const fetchSeq = ++lastFetchSeq.current;
-    setIsLoadingEntries(true);
-    try {
-      const path = q
-        ? `/entries/search/?q=${encodeURIComponent(q)}${date ? `&date=${encodeURIComponent(date)}` : ''}`
-        : `/entries/${date ? `?date=${encodeURIComponent(date)}` : ''}`;
+  const fetchEntries = useCallback(
+    async ({ q = null, date = null } = {}) => {
+      const fetchSeq = ++lastFetchSeq.current;
+      setIsLoadingEntries(true);
+      try {
+        const path = q
+          ? `/entries/search/?q=${encodeURIComponent(q)}${date ? `&date=${encodeURIComponent(date)}` : ''}`
+          : `/entries/${date ? `?date=${encodeURIComponent(date)}` : ''}`;
 
-      const data = await api.get(path);
-      if (fetchSeq === lastFetchSeq.current) {
-        setEntries(Array.isArray(data) ? data : []);
+        const data = await api.get(path);
+        if (fetchSeq === lastFetchSeq.current) {
+          setEntries(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        if (error.status === 401) return handleAuthExpired();
+        console.error('Error fetching entries:', error);
+        if (fetchSeq === lastFetchSeq.current) {
+          setEntries([]);
+        }
+      } finally {
+        if (fetchSeq === lastFetchSeq.current) {
+          setIsLoadingEntries(false);
+        }
       }
-    } catch (error) {
-      if (error.status === 401) return handleAuthExpired();
-      console.error('Error fetching entries:', error);
-      if (fetchSeq === lastFetchSeq.current) {
-        setEntries([]);
-      }
-    } finally {
-      if (fetchSeq === lastFetchSeq.current) {
-        setIsLoadingEntries(false);
-      }
-    }
-  }, [handleAuthExpired]);
+    },
+    [handleAuthExpired],
+  );
 
   const fetchMarkedDates = useCallback(async () => {
     try {
@@ -84,9 +87,10 @@ function App() {
     return () => window.clearTimeout(handle);
   }, [searchQuery, selectedDate, isAuthed, fetchEntries]);
 
-  const handleSearch = async (e) => {
+  const handleSearch = (e) => {
     e.preventDefault();
     if (!isAuthed) return;
+    // 触发立即拉取；即便防抖 useEffect 也在 250ms 后触发，fetchSeq 机制会保证只有最新结果生效。
     const q = searchQuery.trim();
     fetchEntries({ q: q || null, date: selectedDate });
   };
@@ -136,7 +140,7 @@ function App() {
           .sort((a, b) => {
             if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
             return new Date(b.created_at) - new Date(a.created_at);
-          })
+          }),
       );
     } catch (error) {
       if (error.status === 401) return handleAuthExpired();
@@ -220,7 +224,9 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] py-8 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className={`mx-auto transition-all duration-300 ${isCreating ? 'max-w-4xl' : 'max-w-6xl'}`}>
+      <div
+        className={`mx-auto transition-all duration-300 ${isCreating ? 'max-w-4xl' : 'max-w-6xl'}`}
+      >
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           {!isCreating && (
             <aside className="lg:w-80 flex-shrink-0 space-y-6 lg:sticky lg:top-8 z-10">
@@ -243,7 +249,6 @@ function App() {
               onExportAll={handleExportAll}
               isExporting={isExporting}
             />
-
 
             {!isCreating && (
               <>
@@ -273,7 +278,6 @@ function App() {
               />
             )}
 
-
             {!isCreating && (
               <EntryList
                 entries={entries}
@@ -286,7 +290,7 @@ function App() {
                 onCreate={startCreate}
               />
             )}
-            
+
             <footer className="mt-20 text-center text-gray-400 text-sm pb-10">
               <p>© {new Date().getFullYear()} MyDaily · 记录生活每一刻</p>
             </footer>
@@ -308,4 +312,3 @@ function App() {
 }
 
 export default App;
-

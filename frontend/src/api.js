@@ -52,36 +52,34 @@ async function request(path, options = {}) {
   return response;
 }
 
+async function sendJson(method, path, data) {
+  const res = await request(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: data === undefined ? undefined : JSON.stringify(data),
+  });
+  return res.json();
+}
+
 export async function get(path) {
   const res = await request(path);
   return res.json();
 }
 
 export async function post(path, data) {
-  const res = await request(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  return res.json();
+  return sendJson('POST', path, data);
 }
 
 export async function put(path, data) {
-  const res = await request(path, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  return res.json();
+  return sendJson('PUT', path, data);
+}
+
+export async function patch(path, data) {
+  return sendJson('PATCH', path, data);
 }
 
 export async function del(path) {
   const res = await request(path, { method: 'DELETE' });
-  return res.json();
-}
-
-export async function patch(path) {
-  const res = await request(path, { method: 'PATCH' });
   return res.json();
 }
 
@@ -90,29 +88,18 @@ export async function pinEntry(id) {
 }
 
 export async function login(password) {
-  const res = await fetch(`${API_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
-  });
-  if (!res.ok) {
-    let detail = '登录失败';
-    try {
-      const body = await res.json();
-      detail = body.detail || detail;
-    } catch (_) {
-      // ignore
-    }
-    throw new ApiError(detail, res.status);
-  }
-  return res.json();
+  // 登录走统一的 request 通道，便于未来加全局超时/CSRF/重试等机制
+  return sendJson('POST', '/auth/login', { password });
 }
 
 export function storeAuth(token, validMs = 30 * 24 * 60 * 60 * 1000) {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
-    token,
-    expiresAt: Date.now() + validMs,
-  }));
+  localStorage.setItem(
+    AUTH_STORAGE_KEY,
+    JSON.stringify({
+      token,
+      expiresAt: Date.now() + validMs,
+    }),
+  );
 }
 
 export function clearAuth() {

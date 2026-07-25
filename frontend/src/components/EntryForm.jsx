@@ -12,7 +12,9 @@ function EntryForm({ isEditing, title, setTitle, content, setContent, handleSubm
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="title" className="block text-sm font-semibold text-gray-700 mb-2">标题</label>
+            <label htmlFor="title" className="block text-sm font-semibold text-gray-700 mb-2">
+              标题
+            </label>
             <input
               type="text"
               id="title"
@@ -24,7 +26,9 @@ function EntryForm({ isEditing, title, setTitle, content, setContent, handleSubm
             />
           </div>
           <div>
-            <label htmlFor="content" className="block text-sm font-semibold text-gray-700 mb-2">内容</label>
+            <label htmlFor="content" className="block text-sm font-semibold text-gray-700 mb-2">
+              内容
+            </label>
             <textarea
               id="content"
               rows={15}

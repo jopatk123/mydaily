@@ -48,9 +48,7 @@ function TodoPanel() {
   const toggleTodo = async (todo) => {
     if (editingId === todo.id) return;
     // 乐观更新 UI
-    setTodos(prev => prev.map(t =>
-      t.id === todo.id ? { ...t, completed: !t.completed } : t
-    ));
+    setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, completed: !t.completed } : t)));
     try {
       await api.put(`/todos/${todo.id}`, { completed: !todo.completed });
     } catch (error) {
@@ -76,7 +74,7 @@ function TodoPanel() {
       return;
     }
     // 乐观更新 UI
-    setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, title: trimmed } : t));
+    setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, title: trimmed } : t)));
     setEditingId(null);
     setEditingTitle('');
     try {
@@ -88,10 +86,10 @@ function TodoPanel() {
   };
 
   const deleteTodo = async (id) => {
-    const todo = todos.find(t => t.id === id);
+    const todo = todos.find((t) => t.id === id);
     if (!window.confirm(`确定要删除 "${todo?.title ?? ''}" 吗？`)) return;
     // 乐观更新 UI
-    setTodos(prev => prev.filter(t => t.id !== id));
+    setTodos((prev) => prev.filter((t) => t.id !== id));
     try {
       await api.del(`/todos/${id}`);
     } catch (error) {
@@ -101,13 +99,13 @@ function TodoPanel() {
   };
 
   const clearCompleted = async () => {
-    const completedTodos = todos.filter(t => t.completed);
+    const completedTodos = todos.filter((t) => t.completed);
     if (completedTodos.length === 0) return;
     if (!window.confirm(`确定要清除 ${completedTodos.length} 个已完成的待办吗？`)) return;
     // 乐观更新 UI
-    setTodos(prev => prev.filter(t => !t.completed));
+    setTodos((prev) => prev.filter((t) => !t.completed));
     try {
-      await Promise.all(completedTodos.map(t => api.del(`/todos/${t.id}`)));
+      await Promise.all(completedTodos.map((t) => api.del(`/todos/${t.id}`)));
     } catch (error) {
       console.error('Error clearing completed todos:', error);
       fetchTodos();
@@ -115,8 +113,8 @@ function TodoPanel() {
   };
 
   // 分离完成和未完成的事项，让未完成的排在前面
-  const activeTodos = todos.filter(t => !t.completed);
-  const completedTodos = todos.filter(t => t.completed);
+  const activeTodos = todos.filter((t) => !t.completed);
+  const completedTodos = todos.filter((t) => t.completed);
   const displayTodos = [...activeTodos, ...completedTodos];
 
   return (
@@ -142,7 +140,9 @@ function TodoPanel() {
       <div className="flex-1 max-h-[300px] overflow-y-auto p-2 space-y-1 custom-scrollbar">
         {displayTodos.length === 0 && (
           <div className="text-center py-8 text-gray-400 text-sm">
-            还没有待办事项，<br />添加一个吧！
+            还没有待办事项，
+            <br />
+            添加一个吧！
           </div>
         )}
         {displayTodos.map((todo) => (
@@ -162,14 +162,19 @@ function TodoPanel() {
             {editingId === todo.id ? (
               <form
                 className="flex-1 flex items-center gap-1"
-                onSubmit={(e) => { e.preventDefault(); saveEdit(todo); }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveEdit(todo);
+                }}
               >
                 <input
                   ref={editInputRef}
                   type="text"
                   value={editingTitle}
                   onChange={(e) => setEditingTitle(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') cancelEdit();
+                  }}
                   className="flex-1 text-sm border-gray-200 rounded-md focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 px-2 py-0.5"
                 />
                 <button
@@ -205,7 +210,10 @@ function TodoPanel() {
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   {!todo.completed && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); startEdit(todo); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEdit(todo);
+                      }}
                       className="text-gray-300 hover:text-indigo-500 p-1.5 hover:bg-indigo-50 rounded-md transition-colors"
                       title="编辑"
                     >
@@ -213,7 +221,10 @@ function TodoPanel() {
                     </button>
                   )}
                   <button
-                    onClick={(e) => { e.stopPropagation(); deleteTodo(todo.id); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteTodo(todo.id);
+                    }}
                     className="text-gray-300 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-md transition-colors"
                     title="删除"
                   >

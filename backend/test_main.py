@@ -362,6 +362,13 @@ def test_protected_route_without_token_returns_401(login_client):
     assert response.status_code == 401
 
 
+def test_auth_disabled_allows_access_without_token(login_client, monkeypatch):
+    """AUTH_DISABLED=true 时，未带 token 也应能访问受保护路由。"""
+    monkeypatch.setattr("auth.AUTH_DISABLED", True)
+    response = login_client.get("/entries/")
+    assert response.status_code == 200
+
+
 def test_protected_route_with_malformed_token_returns_401(login_client):
     """格式错误的 token 应返回 401。"""
     response = login_client.get(

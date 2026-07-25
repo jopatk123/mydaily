@@ -328,4 +328,27 @@ describe('App', () => {
       );
     });
   });
+
+  it('logs out and shows auth screen when API returns 401', async () => {
+    const unauthorizedResponse = {
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ detail: 'Token expired' }),
+    };
+    mockFetchByUrl([
+      ['/entries/dates/', () => Promise.resolve(unauthorizedResponse)],
+      ['/entries/', () => Promise.resolve(unauthorizedResponse)],
+    ]);
+
+    render(<App />);
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('请输入密码继续')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
+    // 401 后应清除本地存储的失效凭据
+    expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+  });
 });

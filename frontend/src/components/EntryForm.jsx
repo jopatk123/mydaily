@@ -2,7 +2,7 @@ import { PenTool } from 'lucide-react';
 
 function EntryForm({ isEditing, title, setTitle, content, setContent, handleSubmit }) {
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 mb-10 overflow-hidden transform transition-all animate-in fade-in slide-in-from-top-4">
+    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 mb-10 overflow-hidden transform transition-all duration-300">
       <div className="p-6 sm:p-10">
         <div className="flex items-center space-x-2 mb-8">
           <PenTool className="h-6 w-6 text-indigo-500" />

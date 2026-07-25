@@ -61,8 +61,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -246,17 +246,30 @@ app.include_router(router)
 # ── Static files / SPA (production) ─────────────────────────────────
 
 static_path = Path(__file__).parent / "static"
+# 已注册的 API 路由前缀（首段 path segment），SPA 兜底路由不应处理这些路径。
+# 新增路由前缀时记得在此同步，否则前端 SPA 会兜底接管。
+_API_PREFIXES = frozenset({"entries", "todos", "auth", "health", "docs", "openapi.json", "redoc"})
+
+
 if static_path.exists():
     app.mount("/assets", StaticFiles(directory=str(static_path / "assets")), name="assets")
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        # API 路由已经在上面定义，这里处理前端路由
-        if full_path.startswith(("entries", "todos", "auth", "health")):
+        # 用首段 path segment 比对，避免被 "/entriesfoo" 这类前缀误命中
+        first_segment = full_path.split("/", 1)[0]
+        if first_segment in _API_PREFIXES:
             raise HTTPException(status_code=404)
 
-        file_path = static_path / full_path
-        if file_path.is_file():
-            return FileResponse(file_path)
+        # 防御路径穿越：解析后必须仍位于 static_path 之内
+        resolved_static = static_path.resolve()
+        resolved_file = (static_path / full_path).resolve()
+        try:
+            resolved_file.relative_to(resolved_static)
+        except ValueError:
+            raise HTTPException(status_code=404)
+
+        if resolved_file.is_file():
+            return FileResponse(resolved_file)
         # SPA fallback
         return FileResponse(static_path / "index.html")

@@ -99,6 +99,7 @@ function EntryList({
                       onClick={() => onDelete(entry.id)}
                       className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
                       title="删除日记"
+                      aria-label="删除日记"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>

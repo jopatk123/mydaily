@@ -25,6 +25,7 @@ function AuthScreen({ passwordInput, setPasswordInput, authError, handleAuthSubm
               onChange={(e) => setPasswordInput(e.target.value)}
               className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border transition-colors"
               placeholder="请输入访问密码"
+              autoComplete="current-password"
               required
             />
           </div>

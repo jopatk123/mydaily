@@ -1,11 +1,18 @@
-import pytest
-from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
-from sqlmodel.pool import StaticPool
+import os
 
-from auth import login_limiter, verify_auth
-from database import get_session
-from main import app
+# 测试环境固定密码/密钥——必须在导入 auth/main 之前设置，
+# 否则 auth 模块加载时会因 fail-closed 直接抛 RuntimeError。
+os.environ.setdefault("MYDAILY_PASSWORD", "asd123123123")
+os.environ.setdefault("MYDAILY_SECRET_KEY", "test-secret-key-for-pytest-only")
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
+from sqlmodel.pool import StaticPool  # noqa: E402
+
+from auth import login_limiter, verify_auth  # noqa: E402
+from database import get_session  # noqa: E402
+from main import app  # noqa: E402
 
 
 @pytest.fixture(name="session")

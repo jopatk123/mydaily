@@ -11,36 +11,46 @@ from fastapi import Header, HTTPException
 
 logger = logging.getLogger(__name__)
 
-# 默认密码仅用于本地开发快速启动；生产必须通过环境变量覆盖
-MYDAILY_PASSWORD = os.getenv("MYDAILY_PASSWORD", "asd123123123")
-SECRET_KEY = os.getenv("MYDAILY_SECRET_KEY", "mydaily-default-secret-key")
+# 不再提供硬编码默认凭据——公网可查的弱默认值等同于漏洞。
+# 启用认证时必须显式设置；如需禁用认证（仅本地信任环境），显式设 MYDAILY_AUTH_DISABLED=true。
+MYDAILY_PASSWORD = os.getenv("MYDAILY_PASSWORD", "")
+SECRET_KEY = os.getenv("MYDAILY_SECRET_KEY", "")
 
 # Token 默认有效期 30 天，与前端 localStorage 保持一致
 TOKEN_TTL_SECONDS = int(os.getenv("MYDAILY_TOKEN_TTL_SECONDS", str(30 * 24 * 60 * 60)))
 
-# 显式禁用认证（仅当密码为空且设为 true 时才允许放行）
+# 显式禁用认证（仅本地信任环境使用；生产必须设置密码并保持此项未启用）
 AUTH_DISABLED = os.getenv("MYDAILY_AUTH_DISABLED", "").lower() in ("1", "true", "yes")
 
-if MYDAILY_PASSWORD == "asd123123123":
+if AUTH_DISABLED:
     logger.warning(
-        "SECURITY WARNING: Using default password. "
-        "Set the MYDAILY_PASSWORD environment variable to a strong password."
-    )
-if SECRET_KEY == "mydaily-default-secret-key":
-    logger.warning(
-        "SECURITY WARNING: Using default SECRET_KEY. "
-        "Set the MYDAILY_SECRET_KEY environment variable to a random string."
+        "SECURITY WARNING: Auth is disabled (MYDAILY_AUTH_DISABLED=true). "
+        "This must NEVER be used in production. Set MYDAILY_PASSWORD and "
+        "MYDAILY_SECRET_KEY for any non-trusted environment."
     )
 
-if not MYDAILY_PASSWORD and not AUTH_DISABLED:
-    raise RuntimeError(
-        "MYDAILY_PASSWORD is empty. Either set a strong password, "
-        "or explicitly set MYDAILY_AUTH_DISABLED=true to disable auth."
-    )
+# Fail-closed：启用认证时密码与密钥均不可为空
+if not AUTH_DISABLED:
+    if not MYDAILY_PASSWORD:
+        raise RuntimeError(
+            "MYDAILY_PASSWORD is empty. Set a strong password, or explicitly "
+            "set MYDAILY_AUTH_DISABLED=true to disable auth (local only)."
+        )
+    if not SECRET_KEY:
+        raise RuntimeError(
+            "MYDAILY_SECRET_KEY is empty. Generate one with "
+            '`python3 -c "import secrets; print(secrets.token_hex(32))"`, '
+            "or set MYDAILY_AUTH_DISABLED=true to disable auth (local only)."
+        )
 
 
 class _LoginRateLimiter:
-    """Simple in-memory rate limiter for login attempts, keyed by client IP."""
+    """Simple in-memory rate limiter for login attempts, keyed by client IP.
+
+    注意：状态保存在进程内存中，仅在单 worker 模式下生效（uvicorn 默认 1 worker）。
+    若部署为多 worker（如 ``uvicorn --workers 4``），每个进程独立计数，
+    实际阈值会放大 N 倍。多副本部署应替换为 Redis 等共享存储实现。
+    """
 
     def __init__(self, max_attempts: int = 10, window_seconds: int = 60):
         self._max = max_attempts
@@ -103,12 +113,13 @@ def verify_auth(authorization: Optional[str] = Header(None, alias="Authorization
     """FastAPI dependency that verifies Bearer token on protected routes.
 
     Token 必须包含未过期的 exp_timestamp，且签名匹配 SECRET_KEY + MYDAILY_PASSWORD。
+    AUTH_DISABLED=true 时直接放行（仅本地信任环境使用）。
     """
+    if AUTH_DISABLED:
+        return
+
     if not MYDAILY_PASSWORD:
-        # 密码为空时已由启动校验保证必须显式 AUTH_DISABLED=true
-        if AUTH_DISABLED:
-            return
-        # 此分支理论上不可达，防御性处理
+        # 防御性分支：理论不可达，启动时已由 fail-closed 校验保证
         raise HTTPException(status_code=401, detail="Authentication not configured")
 
     if not authorization or not authorization.startswith("Bearer "):

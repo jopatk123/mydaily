@@ -7,13 +7,17 @@ services:
       - "5555:8000"
     environment:
       - PYTHONUNBUFFERED=1
-      # Override the default login password (strongly recommended for production)
-      # - MYDAILY_PASSWORD=your-secure-password
-      # Override the token-signing secret (strongly recommended for production)
-      # - MYDAILY_SECRET_KEY=your-random-secret-key
-      # Override the token TTL (defaults to 30 days, in seconds)
+      # ⚠️ 必填项：未设置 MYDAILY_PASSWORD 时容器会启动失败。
+      # 生成强密码：python3 -c "import secrets; print(secrets.token_hex(16))"
+      - MYDAILY_PASSWORD=${MYDAILY_PASSWORD:-}
+      # ⚠️ 必填项：Token 签名密钥，未设置时容器会启动失败。
+      # 生成密钥：python3 -c "import secrets; print(secrets.token_hex(32))"
+      - MYDAILY_SECRET_KEY=${MYDAILY_SECRET_KEY:-}
+      # 仅本地信任环境可设为 true 以禁用认证（生产绝不可用）
+      # - MYDAILY_AUTH_DISABLED=true
+      # Token 有效期（秒），默认 30 天
       # - MYDAILY_TOKEN_TTL_SECONDS=2592000
-      # Override CORS origins (comma-separated)
+      # CORS 允许源（逗号分隔）
       # - MYDAILY_CORS_ORIGINS=https://your-domain.example.com
     volumes:
       - mydaily-db:/app/data

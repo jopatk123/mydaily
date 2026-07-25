@@ -5,6 +5,7 @@ import CalendarPanel from './components/CalendarPanel';
 import TodoPanel from './components/TodoPanel';
 import EntryForm from './components/EntryForm';
 import EntryList from './components/EntryList';
+import EntryDetail from './components/EntryDetail';
 import FilterChips from './components/FilterChips';
 import HeaderBar from './components/HeaderBar';
 import MobileFab from './components/MobileFab';
@@ -17,6 +18,7 @@ function App() {
   const [content, setContent] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState(null);
+  const [viewingEntry, setViewingEntry] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [markedDates, setMarkedDates] = useState([]);
@@ -79,6 +81,7 @@ function App() {
 
   useEffect(() => {
     if (!isAuthed) return;
+    setViewingEntry(null);
     const q = searchQuery.trim();
     const handle = window.setTimeout(() => {
       fetchEntries({ q: q || null, date: selectedDate });
@@ -100,17 +103,24 @@ function App() {
     if (!isAuthed) return;
     try {
       if (isEditing) {
-        await api.put(`/entries/${editingEntryId}`, { title, content });
+        const savedEntry = await api.put(`/entries/${editingEntryId}`, { title, content });
+        setTitle('');
+        setContent('');
+        setIsCreating(false);
+        setEditingEntryId(null);
+        fetchEntries({ q: searchQuery.trim() || null, date: selectedDate });
+        fetchMarkedDates();
+        setViewingEntry(savedEntry);
       } else {
         await api.post('/entries/', { title, content });
+        setTitle('');
+        setContent('');
+        setIsCreating(false);
+        setEditingEntryId(null);
+        setSearchQuery('');
+        fetchEntries({ q: null, date: selectedDate });
+        fetchMarkedDates();
       }
-      setTitle('');
-      setContent('');
-      setIsCreating(false);
-      setEditingEntryId(null);
-      setSearchQuery('');
-      fetchEntries({ q: null, date: selectedDate });
-      fetchMarkedDates();
     } catch (error) {
       if (error.status === 401) return handleAuthExpired();
       console.error('Error saving entry:', error);
@@ -122,6 +132,7 @@ function App() {
     if (!window.confirm('确定要删除这篇日记吗？')) return;
     try {
       await api.del(`/entries/${id}`);
+      setViewingEntry((prev) => (prev && prev.id === id ? null : prev));
       fetchEntries({ q: searchQuery.trim() || null, date: selectedDate });
       fetchMarkedDates();
     } catch (error) {
@@ -142,6 +153,7 @@ function App() {
             return new Date(b.created_at) - new Date(a.created_at);
           }),
       );
+      setViewingEntry((prev) => (prev && prev.id === id ? updated : prev));
     } catch (error) {
       if (error.status === 401) return handleAuthExpired();
       console.error('Error pinning entry:', error);
@@ -178,6 +190,7 @@ function App() {
     setEditingEntryId(null);
     setTitle('');
     setContent('');
+    setViewingEntry(null);
     setIsCreating(true);
   };
 
@@ -194,6 +207,15 @@ function App() {
     setEditingEntryId(null);
     setTitle('');
     setContent('');
+  };
+
+  const startView = (entry) => {
+    setViewingEntry(entry);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const exitView = () => {
+    setViewingEntry(null);
   };
 
   const handleAuthSubmit = async (e) => {
@@ -222,13 +244,17 @@ function App() {
     );
   }
 
+  const isViewing = !isCreating && Boolean(viewingEntry);
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div
-        className={`mx-auto transition-all duration-300 ${isCreating ? 'max-w-4xl' : 'max-w-6xl'}`}
+        className={`mx-auto transition-all duration-300 ${
+          isCreating || isViewing ? 'max-w-4xl' : 'max-w-6xl'
+        }`}
       >
         <div className="flex flex-col lg:flex-row gap-8 items-start">
-          {!isCreating && (
+          {!isCreating && !isViewing && (
             <aside className="lg:w-80 flex-shrink-0 space-y-6 lg:sticky lg:top-8 z-10">
               <CalendarPanel
                 calendarMonth={calendarMonth}
@@ -250,7 +276,7 @@ function App() {
               isExporting={isExporting}
             />
 
-            {!isCreating && (
+            {!isCreating && !isViewing && (
               <>
                 <SearchBar
                   searchQuery={searchQuery}
@@ -278,7 +304,17 @@ function App() {
               />
             )}
 
-            {!isCreating && (
+            {isViewing && viewingEntry && (
+              <EntryDetail
+                entry={viewingEntry}
+                onBack={exitView}
+                onEdit={startEdit}
+                onDelete={handleDelete}
+                onPin={handlePin}
+              />
+            )}
+
+            {!isCreating && !isViewing && (
               <EntryList
                 entries={entries}
                 isLoadingEntries={isLoadingEntries}
@@ -287,6 +323,7 @@ function App() {
                 onEdit={startEdit}
                 onDelete={handleDelete}
                 onPin={handlePin}
+                onView={startView}
                 onCreate={startCreate}
               />
             )}

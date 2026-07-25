@@ -1,4 +1,4 @@
-import { Calendar, PenTool, Pencil, Trash2, Pin, PinOff } from 'lucide-react';
+import { Calendar, PenTool, Pencil, Trash2, Pin, PinOff, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import EntrySkeleton from './EntrySkeleton';
@@ -23,6 +23,7 @@ function EntryList({
   onEdit,
   onDelete,
   onPin,
+  onView,
   onCreate,
 }) {
   if (isLoadingEntries) {
@@ -44,18 +45,30 @@ function EntryList({
               ? format(createdAt, 'yyyy年MM月dd日 HH:mm', { locale: zhCN })
               : '-';
 
+          const handleCardClick = () => onView?.(entry);
+          const stopPropagation = (e) => e.stopPropagation();
+
           return (
             <article
               key={entry.id}
-              className={`group bg-white rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 ${
+              onClick={handleCardClick}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onView?.(entry);
+                }
+              }}
+              className={`group cursor-pointer bg-white rounded-2xl border overflow-hidden shadow-sm hover:shadow-md hover:border-indigo-200 transition-all duration-300 ${
                 entry.is_pinned ? 'border-amber-300 ring-1 ring-amber-200' : 'border-gray-100'
               }`}
             >
               <div className="p-6 sm:px-8 py-6">
                 <div className="flex justify-between items-start">
-                  <div className="space-y-1">
+                  <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors tracking-wide">
+                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors tracking-wide break-words">
                         {entry.title}
                       </h3>
                       {entry.is_pinned && (
@@ -70,9 +83,12 @@ function EntryList({
                       {createdAtLabel}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <button
-                      onClick={() => onPin(entry.id)}
+                      onClick={(e) => {
+                        stopPropagation(e);
+                        onPin(entry.id);
+                      }}
                       className={`p-2 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 ${
                         entry.is_pinned
                           ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 lg:opacity-100'
@@ -88,7 +104,10 @@ function EntryList({
                       )}
                     </button>
                     <button
-                      onClick={() => onEdit(entry)}
+                      onClick={(e) => {
+                        stopPropagation(e);
+                        onEdit(entry);
+                      }}
                       className="p-2 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
                       title="编辑日记"
                       aria-label="编辑日记"
@@ -96,7 +115,10 @@ function EntryList({
                       <Pencil className="h-5 w-5" />
                     </button>
                     <button
-                      onClick={() => onDelete(entry.id)}
+                      onClick={(e) => {
+                        stopPropagation(e);
+                        onDelete(entry.id);
+                      }}
                       className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
                       title="删除日记"
                       aria-label="删除日记"
@@ -107,8 +129,12 @@ function EntryList({
                 </div>
 
                 <div className="mt-5">
-                  <div className="prose prose-sm prose-indigo max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap font-medium">
+                  <p className="prose prose-sm prose-indigo max-w-none text-gray-600 leading-relaxed font-medium line-clamp-2 break-words">
                     {entry.content}
+                  </p>
+                  <div className="mt-3 flex items-center text-xs font-semibold text-indigo-500 group-hover:text-indigo-600 transition-colors">
+                    查看全文
+                    <ChevronRight className="h-3.5 w-3.5 ml-0.5 transition-transform group-hover:translate-x-0.5" />
                   </div>
                 </div>
               </div>

@@ -351,4 +351,169 @@ describe('App', () => {
     // 401 后应清除本地存储的失效凭据
     expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
   });
+
+  it('shows only content preview (truncated) in list, not full content', async () => {
+    const longContent =
+      '这是日记的第一行内容，描述了今天发生的事情。' +
+      '接着是第二行内容，讲述了一些细节。' +
+      '第三行内容继续延伸，但列表只应该展示前面两行。';
+    const mockEntries = [
+      {
+        id: 1,
+        title: '长日记',
+        content: longContent,
+        created_at: '2024-01-01T12:00:00',
+      },
+    ];
+    mockFetchByUrl([
+      ['/entries/dates/', () => Promise.resolve(createFetchResponse(['2024-01-01']))],
+      ['/entries/', () => Promise.resolve(createFetchResponse(mockEntries))],
+    ]);
+
+    render(<App />);
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('长日记')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
+
+    // 内容容器应使用 line-clamp-2 进行截断
+    const contentParagraph = screen.getByText(longContent);
+    expect(contentParagraph.className).toContain('line-clamp-2');
+    // 列表中应提供"查看全文"提示
+    expect(screen.getByText('查看全文')).toBeInTheDocument();
+  });
+
+  it('opens entry detail view when clicking a list card and shows full content', async () => {
+    const fullContent = '第一行\n第二行\n第三行\n第四行';
+    const mockEntries = [
+      {
+        id: 7,
+        title: '详情测试',
+        content: fullContent,
+        created_at: '2024-01-01T12:00:00',
+      },
+    ];
+    mockFetchByUrl([
+      ['/entries/dates/', () => Promise.resolve(createFetchResponse(['2024-01-01']))],
+      ['/entries/', () => Promise.resolve(createFetchResponse(mockEntries))],
+    ]);
+
+    render(<App />);
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('详情测试')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
+
+    // 列表状态下应同时存在"查看全文"提示
+    expect(screen.getByText('查看全文')).toBeInTheDocument();
+
+    // 点击标题进入详情视图
+    fireEvent.click(screen.getByText('详情测试'));
+
+    // 详情视图出现"返回列表"按钮
+    expect(screen.getByText('返回列表')).toBeInTheDocument();
+    // "查看全文"提示应消失（已离开列表）
+    expect(screen.queryByText('查看全文')).not.toBeInTheDocument();
+  });
+
+  it('returns to list from detail view via back button', async () => {
+    const mockEntries = [
+      {
+        id: 8,
+        title: '返回测试',
+        content: '内容',
+        created_at: '2024-01-01T12:00:00',
+      },
+    ];
+    mockFetchByUrl([
+      ['/entries/dates/', () => Promise.resolve(createFetchResponse(['2024-01-01']))],
+      ['/entries/', () => Promise.resolve(createFetchResponse(mockEntries))],
+    ]);
+
+    render(<App />);
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('返回测试')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
+
+    fireEvent.click(screen.getByText('返回测试'));
+    expect(screen.getByText('返回列表')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('返回列表'));
+
+    expect(screen.queryByText('返回列表')).not.toBeInTheDocument();
+    // 列表恢复显示，"查看全文"提示再次出现
+    expect(screen.getByText('查看全文')).toBeInTheDocument();
+  });
+
+  it('opens edit form from detail view and returns to detail after saving', async () => {
+    const mockEntries = [
+      {
+        id: 9,
+        title: '原标题',
+        content: '原内容',
+        created_at: '2024-01-01T12:00:00',
+      },
+    ];
+    const updatedEntry = {
+      id: 9,
+      title: '新标题',
+      content: '新内容',
+      created_at: '2024-01-01T12:00:00',
+    };
+    mockFetchByUrl([
+      ['/entries/dates/', () => Promise.resolve(createFetchResponse(['2024-01-01']))],
+      [
+        new RegExp(`/entries/9$`),
+        (_url, options) => {
+          if (options?.method === 'PUT') {
+            return Promise.resolve(createFetchResponse(updatedEntry));
+          }
+          return Promise.resolve(createFetchResponse(mockEntries[0]));
+        },
+      ],
+      ['/entries/', () => Promise.resolve(createFetchResponse(mockEntries))],
+    ]);
+
+    render(<App />);
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('原标题')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
+
+    // 进入详情视图
+    fireEvent.click(screen.getByText('原标题'));
+    expect(screen.getByText('返回列表')).toBeInTheDocument();
+
+    // 在详情视图中点击编辑
+    fireEvent.click(screen.getByLabelText('编辑日记'));
+    expect(screen.getByLabelText('标题')).toBeInTheDocument();
+
+    // 修改并提交
+    fireEvent.change(screen.getByLabelText('标题'), { target: { value: '新标题' } });
+    fireEvent.change(screen.getByLabelText('内容'), { target: { value: '新内容' } });
+    fireEvent.click(screen.getByText('保存修改'));
+
+    // 提交后应回到详情视图，显示新内容与"返回列表"
+    await waitFor(
+      () => {
+        expect(screen.getByText('返回列表')).toBeInTheDocument();
+        expect(screen.getByText('新标题')).toBeInTheDocument();
+        expect(screen.getByText('新内容')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
+  });
 });

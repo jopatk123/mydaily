@@ -4,7 +4,8 @@ services:
     build: .                         # 从当前目录 Dockerfile 构建镜像
     image: mydaily:latest            # 手动指定镜像的仓库名+标签
     ports:
-      - "5555:8000"
+      # 仅绑定 loopback 接口：由宿主机 nginx 终止 TLS 后反向代理
+      - "127.0.0.1:5555:8000"
     environment:
       - PYTHONUNBUFFERED=1
       # ⚠️ 必填项：未设置 MYDAILY_PASSWORD 时容器会启动失败。

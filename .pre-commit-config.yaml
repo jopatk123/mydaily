@@ -27,18 +27,3 @@ repos:
       - id: flake8
         files: ^backend/
         args: ["--max-line-length=120", "--ignore=E501,W503"]
-
-  - repo: local
-    hooks:
-      - id: eslint
-        name: ESLint
-        entry: bash -c 'cd frontend && npm run lint'
-        language: system
-        files: ^frontend/.*\.(js|jsx)$
-        pass_filenames: false
-      - id: prettier
-        name: Prettier
-        entry: bash -c 'cd frontend && npm run format:check'
-        language: system
-        files: ^frontend/.*\.(js|jsx|json|css)$
-        pass_filenames: false

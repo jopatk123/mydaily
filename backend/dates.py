@@ -1,7 +1,8 @@
 """日记日历日期。
 
-SQLite 保存的是去掉时区后的 UTC 时间。按日期筛选和「有日记的日期」
-都要换算到请求指定的 IANA 时区，未指定时用 MYDAILY_TIMEZONE，默认 Asia/Shanghai。
+SQLite 没有时区类型。SQLModel 的 UTCDateTime 要求传入带时区的 datetime，
+绑定前换成 UTC，再以去掉偏移的 UTC 时间写入。按日期筛选和「有日记的日期」
+都要换算到请求指定的 IANA 时区；未指定时用 MYDAILY_TIMEZONE，默认 Asia/Shanghai。
 """
 
 import os
@@ -36,9 +37,13 @@ def to_local_date(value: datetime, tz: ZoneInfo) -> date:
     return assume_utc(value).astimezone(tz).date()
 
 
-def utc_naive_day_bounds(day: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
-    """Local calendar day as a half-open UTC range, stored naive to match SQLite."""
-    start = datetime.combine(day, time.min, tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
-    next_day = day + timedelta(days=1)
-    end = datetime.combine(next_day, time.min, tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
+def utc_day_bounds(day: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
+    """Local calendar day as a half-open ``[start, end)`` range in UTC.
+
+    The returned values stay timezone-aware. SQLModel's ``UTCDateTime`` rejects
+    naive datetimes and converts aware ones to UTC before SQLite stores the
+    wall-clock components without an offset.
+    """
+    start = datetime.combine(day, time.min, tzinfo=tz).astimezone(timezone.utc)
+    end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=tz).astimezone(timezone.utc)
     return start, end

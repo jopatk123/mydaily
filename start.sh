@@ -39,7 +39,7 @@ main() {
     # 1. 环境检测
     log_step "===== 环境检测 ====="
     check_python
-    if [[ "${FRONTEND_ONLY}" != true ]]; then
+    if [[ "${BACKEND_ONLY}" != true ]]; then
         check_node
         check_npm
     fi

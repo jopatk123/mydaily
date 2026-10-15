@@ -1,20 +1,21 @@
 import hmac
 import os
 from contextlib import asynccontextmanager
-from datetime import date as dt_date
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func, or_
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from auth import MYDAILY_PASSWORD, generate_token, login_limiter, verify_auth
 from database import create_db_and_tables, get_session
+from dates import parse_iso_date, resolve_timezone, to_local_date, utc_naive_day_bounds
 from models import (
     DiaryEntry,
     DiaryEntryCreate,
@@ -32,16 +33,30 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _apply_date_filter(stmt, date_str: str):
-    """Apply a ``date=YYYY-MM-DD`` filter to a DiaryEntry select statement.
-
-    Raises HTTPException(400) on invalid date format.
-    """
+def get_tz(tz: Optional[str] = Query(None, max_length=64)) -> ZoneInfo:
+    """Resolve the calendar timezone. Invalid names are a client error."""
     try:
-        filter_day = dt_date.fromisoformat(date_str)
+        return resolve_timezone(tz)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid timezone")
+
+
+def _apply_date_filter(stmt, date_str: str, tz: ZoneInfo):
+    """Keep entries whose UTC timestamp falls on ``date_str`` in ``tz``."""
+    try:
+        filter_day = parse_iso_date(date_str)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-    return stmt.where(func.date(DiaryEntry.created_at) == filter_day.isoformat())
+    start, end = utc_naive_day_bounds(filter_day, tz)
+    return stmt.where(DiaryEntry.created_at >= start, DiaryEntry.created_at < end)
+
+
+def _order_entries(stmt):
+    return stmt.order_by(
+        DiaryEntry.is_pinned.desc(),
+        DiaryEntry.pinned_at.desc(),
+        DiaryEntry.created_at.desc(),
+    )
 
 
 @asynccontextmanager
@@ -104,26 +119,28 @@ def read_entries(
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     date: Optional[str] = None,
+    tz: ZoneInfo = Depends(get_tz),
     session: Session = Depends(get_session),
 ):
     stmt = select(DiaryEntry)
     if date:
-        stmt = _apply_date_filter(stmt, date)
-    stmt = stmt.offset(offset).limit(limit).order_by(DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc())
+        stmt = _apply_date_filter(stmt, date, tz)
+    stmt = _order_entries(stmt).offset(offset).limit(limit)
     return session.exec(stmt).all()
 
 
 @router.get("/entries/export/", response_model=List[DiaryEntry])
 def export_entries(session: Session = Depends(get_session)):
-    stmt = select(DiaryEntry).order_by(DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc())
+    stmt = _order_entries(select(DiaryEntry))
     return session.exec(stmt).all()
 
 
 @router.get("/entries/dates/", response_model=List[str])
-def read_entry_dates(session: Session = Depends(get_session)):
-    # 在 SQL 中做 DISTINCT + 排序，避免把全部 created_at 拉到内存
-    stmt = select(func.date(DiaryEntry.created_at)).distinct().order_by(func.date(DiaryEntry.created_at))
-    return [d for d in session.exec(stmt).all() if d]
+def read_entry_dates(tz: ZoneInfo = Depends(get_tz), session: Session = Depends(get_session)):
+    # 只取时间戳，在请求时区里归入日历日。SQLite 没有 IANA 时区，不能在 SQL 里换算。
+    created_ats = session.exec(select(DiaryEntry.created_at)).all()
+    local_dates = {to_local_date(created_at, tz).isoformat() for created_at in created_ats if created_at}
+    return sorted(local_dates)
 
 
 @router.get("/entries/search/", response_model=List[DiaryEntry])
@@ -132,6 +149,7 @@ def search_entries(
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     date: Optional[str] = None,
+    tz: ZoneInfo = Depends(get_tz),
     session: Session = Depends(get_session),
 ):
     query = q.strip()
@@ -147,9 +165,9 @@ def search_entries(
     )
 
     if date:
-        stmt = _apply_date_filter(stmt, date)
+        stmt = _apply_date_filter(stmt, date, tz)
 
-    stmt = stmt.offset(offset).limit(limit).order_by(DiaryEntry.is_pinned.desc(), DiaryEntry.created_at.desc())
+    stmt = _order_entries(stmt).offset(offset).limit(limit)
     return session.exec(stmt).all()
 
 

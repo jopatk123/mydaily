@@ -213,6 +213,83 @@ def test_invalid_date_filter_returns_400(client):
     assert response.status_code == 400
 
 
+def test_invalid_timezone_returns_400(client):
+    response = client.get("/entries/dates/", params={"tz": "Not/AZone"})
+    assert response.status_code == 400
+
+
+def test_dates_follow_requested_timezone(client, session):
+    """UTC 晚上写成的日记，在东八区应归到下一天。"""
+    session.add(
+        DiaryEntry(
+            title="Late",
+            content="After midnight in Shanghai",
+            created_at=datetime(2024, 1, 1, 16, 30, tzinfo=timezone.utc),
+            updated_at=datetime(2024, 1, 1, 16, 30, tzinfo=timezone.utc),
+        )
+    )
+    session.commit()
+
+    shanghai = client.get("/entries/dates/", params={"tz": "Asia/Shanghai"})
+    assert shanghai.status_code == 200
+    assert shanghai.json() == ["2024-01-02"]
+
+    utc = client.get("/entries/dates/", params={"tz": "UTC"})
+    assert utc.status_code == 200
+    assert utc.json() == ["2024-01-01"]
+
+    matched = client.get("/entries/", params={"date": "2024-01-02", "tz": "Asia/Shanghai"})
+    assert matched.status_code == 200
+    assert [item["title"] for item in matched.json()] == ["Late"]
+
+    missed = client.get("/entries/", params={"date": "2024-01-01", "tz": "Asia/Shanghai"})
+    assert missed.status_code == 200
+    assert missed.json() == []
+
+
+def test_date_filter_respects_dst(client, session):
+    """夏令时切换日用当地午夜切分，而不是固定小时偏移。"""
+    # 2024-03-10 04:30 UTC = 2024-03-09 23:30 America/New_York (EST, UTC-5)
+    session.add(
+        DiaryEntry(
+            title="Before spring forward",
+            content="c",
+            created_at=datetime(2024, 3, 10, 4, 30, tzinfo=timezone.utc),
+            updated_at=datetime(2024, 3, 10, 4, 30, tzinfo=timezone.utc),
+        )
+    )
+    session.commit()
+
+    previous = client.get("/entries/", params={"date": "2024-03-09", "tz": "America/New_York"})
+    assert previous.status_code == 200
+    assert len(previous.json()) == 1
+
+    switch_day = client.get("/entries/", params={"date": "2024-03-10", "tz": "America/New_York"})
+    assert switch_day.status_code == 200
+    assert switch_day.json() == []
+
+
+def test_create_entry_rejects_blank_or_too_long_title(client):
+    blank = client.post("/entries/", json={"title": "   ", "content": "body"})
+    assert blank.status_code == 422
+
+    too_long = client.post("/entries/", json={"title": "a" * 201, "content": "body"})
+    assert too_long.status_code == 422
+
+
+def test_create_entry_strips_surrounding_whitespace(client):
+    response = client.post("/entries/", json={"title": "  Hello  ", "content": "  body  "})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "Hello"
+    assert data["content"] == "body"
+
+
+def test_create_todo_rejects_blank_title(client):
+    response = client.post("/todos/", json={"title": "   ", "completed": False})
+    assert response.status_code == 422
+
+
 def test_update_entry(client):
     create_response = client.post(
         "/entries/",
@@ -478,6 +555,18 @@ def test_pinned_entries_sorted_first(client):
     data = response.json()
     assert data[0]["title"] == "Pinned B"
     assert data[0]["is_pinned"] is True
+
+
+def test_pinned_entries_ordered_by_pinned_at(client):
+    """多条置顶日记按置顶时间从新到旧排列，而不是按创建时间。"""
+    older = client.post("/entries/", json={"title": "Older", "content": "c1"})
+    newer = client.post("/entries/", json={"title": "Newer", "content": "c2"})
+    client.patch(f"/entries/{newer.json()['id']}/pin")
+    client.patch(f"/entries/{older.json()['id']}/pin")
+
+    response = client.get("/entries/")
+    titles = [item["title"] for item in response.json()]
+    assert titles == ["Older", "Newer"]
 
 
 # ========== SQL LIKE Escape Tests ==========

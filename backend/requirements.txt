@@ -2,6 +2,8 @@ fastapi>=0.128.0,<1.0.0
 uvicorn>=0.30.0,<1.0.0
 sqlmodel>=0.0.22,<1.0.0
 pydantic>=2.10.0,<3.0.0
+# ZoneInfo 在精简镜像里没有系统时区数据时的回退
+tzdata>=2024.1
 
 # Dev dependencies (optional for local development)
 pytest>=8.0.0

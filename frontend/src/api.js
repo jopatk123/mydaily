@@ -1,5 +1,30 @@
 const API_URL = '';
 const AUTH_STORAGE_KEY = 'mydaily_auth';
+const DEFAULT_AUTH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Token 格式为 `{unix_seconds}.{hmac}`。无法解析时返回 null。 */
+export function tokenExpiresAt(token) {
+  if (typeof token !== 'string') return null;
+  const dot = token.indexOf('.');
+  if (dot <= 0) return null;
+  const expSeconds = Number(token.slice(0, dot));
+  if (!Number.isFinite(expSeconds) || expSeconds <= 0) return null;
+  return expSeconds * 1000;
+}
+
+export function browserTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai';
+  } catch (_) {
+    return 'Asia/Shanghai';
+  }
+}
+
+/** 给日记日期接口带上浏览器时区，和日历上的本地日期对齐。 */
+export function withTimeZone(path) {
+  const tz = encodeURIComponent(browserTimeZone());
+  return `${path}${path.includes('?') ? '&' : '?'}tz=${tz}`;
+}
 
 export function getStoredAuth() {
   if (typeof window === 'undefined') return null;
@@ -7,8 +32,9 @@ export function getStoredAuth() {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    if (parsed?.token && parsed?.expiresAt && Number(parsed.expiresAt) > Date.now()) {
-      return parsed;
+    const expiresAt = tokenExpiresAt(parsed?.token) ?? Number(parsed?.expiresAt);
+    if (parsed?.token && expiresAt > Date.now()) {
+      return { ...parsed, expiresAt };
     }
   } catch (_) {
     // Ignore corrupt cache
@@ -92,12 +118,13 @@ export async function login(password) {
   return sendJson('POST', '/auth/login', { password });
 }
 
-export function storeAuth(token, validMs = 30 * 24 * 60 * 60 * 1000) {
+export function storeAuth(token, validMs = DEFAULT_AUTH_TTL_MS) {
+  const expiresAt = tokenExpiresAt(token) ?? Date.now() + validMs;
   localStorage.setItem(
     AUTH_STORAGE_KEY,
     JSON.stringify({
       token,
-      expiresAt: Date.now() + validMs,
+      expiresAt,
     }),
   );
 }

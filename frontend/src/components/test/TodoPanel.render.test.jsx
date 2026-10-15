@@ -16,6 +16,21 @@ describe('TodoPanel — 渲染与初始加载', () => {
     });
   });
 
+  it('加载待办返回 401 时通知上层登出', async () => {
+    const onUnauthorized = vi.fn();
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ detail: 'Token expired' }),
+    });
+
+    render(<TodoPanel onUnauthorized={onUnauthorized} />);
+
+    await waitFor(() => {
+      expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('应该在初始化时获取待办列表', async () => {
     render(<TodoPanel />);
 

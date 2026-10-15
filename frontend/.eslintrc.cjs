@@ -18,6 +18,8 @@ module.exports = {
     ],
     // No TypeScript in this project — prop-types validation is redundant
     'react/prop-types': 'off',
+    // 有效行数（跳过空行和注释）超过 800 时阻断 CI。
+    'max-lines': ['error', { max: 800, skipBlankLines: true, skipComments: true }],
   },
   overrides: [
     {

@@ -235,7 +235,7 @@ describe('App', () => {
       ['/entries/dates/', () => Promise.resolve(createFetchResponse([todayYmd]))],
       // initial load (all)
       [
-        new RegExp('/entries/?$'),
+        new RegExp('/entries/\\?(?!date=)'),
         () =>
           Promise.resolve(
             createFetchResponse([

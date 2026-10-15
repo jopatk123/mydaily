@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Trash2, CheckCircle2, Circle, X, Check, Pencil } from 'lucide-react';
 import * as api from '../api';
 
-function TodoPanel() {
+function TodoPanel({ onUnauthorized }) {
   const [todos, setTodos] = useState([]);
   const [newTodo, setNewTodo] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -10,14 +10,24 @@ function TodoPanel() {
   const [editingTitle, setEditingTitle] = useState('');
   const editInputRef = useRef(null);
 
+  const rejectIfUnauthorized = useCallback(
+    (error) => {
+      if (error?.status !== 401) return false;
+      onUnauthorized?.();
+      return true;
+    },
+    [onUnauthorized],
+  );
+
   const fetchTodos = useCallback(async () => {
     try {
       const data = await api.get('/todos/');
       setTodos(data);
     } catch (error) {
+      if (rejectIfUnauthorized(error)) return;
       console.error('Error fetching todos:', error);
     }
-  }, []);
+  }, [rejectIfUnauthorized]);
 
   useEffect(() => {
     fetchTodos();
@@ -40,6 +50,7 @@ function TodoPanel() {
       setIsAdding(false);
       fetchTodos();
     } catch (error) {
+      if (rejectIfUnauthorized(error)) return;
       console.error('Error adding todo:', error);
       window.alert('添加待办失败，请稍后重试。');
     }
@@ -52,6 +63,7 @@ function TodoPanel() {
     try {
       await api.put(`/todos/${todo.id}`, { completed: !todo.completed });
     } catch (error) {
+      if (rejectIfUnauthorized(error)) return;
       console.error('Error updating todo:', error);
       fetchTodos();
     }
@@ -80,6 +92,7 @@ function TodoPanel() {
     try {
       await api.put(`/todos/${todo.id}`, { title: trimmed });
     } catch (error) {
+      if (rejectIfUnauthorized(error)) return;
       console.error('Error updating todo:', error);
       fetchTodos();
     }
@@ -93,6 +106,7 @@ function TodoPanel() {
     try {
       await api.del(`/todos/${id}`);
     } catch (error) {
+      if (rejectIfUnauthorized(error)) return;
       console.error('Error deleting todo:', error);
       fetchTodos();
     }
@@ -107,6 +121,7 @@ function TodoPanel() {
     try {
       await Promise.all(completedTodos.map((t) => api.del(`/todos/${t.id}`)));
     } catch (error) {
+      if (rejectIfUnauthorized(error)) return;
       console.error('Error clearing completed todos:', error);
       fetchTodos();
     }

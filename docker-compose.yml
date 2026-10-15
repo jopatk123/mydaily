@@ -20,6 +20,8 @@ services:
       # - MYDAILY_TOKEN_TTL_SECONDS=2592000
       # CORS 允许源（逗号分隔）
       # - MYDAILY_CORS_ORIGINS=https://your-domain.example.com
+      # 请求未带 tz 时的日历时区（IANA）
+      # - MYDAILY_TIMEZONE=Asia/Shanghai
     volumes:
       - mydaily-db:/app/data
     restart: unless-stopped          # 容器崩溃自动重启（手动停止后不重启）

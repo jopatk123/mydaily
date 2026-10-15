@@ -42,8 +42,10 @@ function App() {
       setIsLoadingEntries(true);
       try {
         const path = q
-          ? `/entries/search/?q=${encodeURIComponent(q)}${date ? `&date=${encodeURIComponent(date)}` : ''}`
-          : `/entries/${date ? `?date=${encodeURIComponent(date)}` : ''}`;
+          ? api.withTimeZone(
+              `/entries/search/?q=${encodeURIComponent(q)}${date ? `&date=${encodeURIComponent(date)}` : ''}`,
+            )
+          : api.withTimeZone(`/entries/${date ? `?date=${encodeURIComponent(date)}` : ''}`);
 
         const data = await api.get(path);
         if (fetchSeq === lastFetchSeq.current) {
@@ -66,7 +68,7 @@ function App() {
 
   const fetchMarkedDates = useCallback(async () => {
     try {
-      const data = await api.get('/entries/dates/');
+      const data = await api.get(api.withTimeZone('/entries/dates/'));
       setMarkedDates(Array.isArray(data) ? data : []);
     } catch (error) {
       if (error.status === 401) return handleAuthExpired();
@@ -263,7 +265,7 @@ function App() {
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
               />
-              <TodoPanel />
+              <TodoPanel onUnauthorized={handleAuthExpired} />
             </aside>
           )}
 

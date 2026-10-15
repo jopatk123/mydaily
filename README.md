@@ -78,6 +78,7 @@ cp .env.example .env
 | `MYDAILY_TOKEN_TTL_SECONDS` | Token 有效期（秒） | `2592000`（30 天） |
 | `MYDAILY_AUTH_DISABLED` | 显式禁用认证（仅本地信任环境） | `false` |
 | `MYDAILY_CORS_ORIGINS` | 允许的 CORS 源（逗号分隔） | `http://localhost:5173,http://localhost:3000,http://localhost:8000` |
+| `MYDAILY_TIMEZONE` | 请求未带 `tz` 时，日历日期使用的 IANA 时区 | `Asia/Shanghai` |
 | `MYDAILY_DATA_DIR` | SQLite 数据目录 | Docker 内 `/app/data`；本地 `./data` |
 
 > ⚠️ **安全提示（fail-closed）：**

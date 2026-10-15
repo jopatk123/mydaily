@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from auth import MYDAILY_PASSWORD, generate_token, login_limiter, verify_auth
 from database import create_db_and_tables, get_session
-from dates import parse_iso_date, resolve_timezone, to_local_date, utc_naive_day_bounds
+from dates import parse_iso_date, resolve_timezone, to_local_date, utc_day_bounds
 from models import (
     DiaryEntry,
     DiaryEntryCreate,
@@ -47,7 +47,7 @@ def _apply_date_filter(stmt, date_str: str, tz: ZoneInfo):
         filter_day = parse_iso_date(date_str)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-    start, end = utc_naive_day_bounds(filter_day, tz)
+    start, end = utc_day_bounds(filter_day, tz)
     return stmt.where(DiaryEntry.created_at >= start, DiaryEntry.created_at < end)
 
 

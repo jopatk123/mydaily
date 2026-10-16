@@ -59,20 +59,34 @@ class _LoginRateLimiter:
         self._lock = threading.Lock()
 
     def is_allowed(self, key: str) -> bool:
-        """Return True if the key is within the rate limit, False if blocked."""
+        """Return True if the key is within the rate limit, False if blocked.
+
+        只做检查、不记录：成功登录不应消耗配额，失败尝试由 ``record_failure`` 记入。
+        """
         now = time.time()
         cutoff = now - self._window
         with self._lock:
-            self._data[key] = [t for t in self._data[key] if t > cutoff]
-            # 顺带清理其他 IP 的过期窗口，避免长期不活跃 IP 残留造成内存泄漏
-            if len(self._data) > 4096:
-                stale = [k for k, v in self._data.items() if not v or v[-1] <= cutoff]
-                for k in stale:
-                    self._data.pop(k, None)
-            if len(self._data[key]) >= self._max:
-                return False
-            self._data[key].append(now)
-            return True
+            attempts = [t for t in self._data[key] if t > cutoff]
+            if attempts:
+                self._data[key] = attempts
+            else:
+                # 空窗口不必占位，顺手移除，避免长期累积空列表
+                self._data.pop(key, None)
+            self._prune_stale(cutoff)
+            return len(attempts) < self._max
+
+    def record_failure(self, key: str) -> None:
+        """记入一次失败的登录尝试。"""
+        with self._lock:
+            self._data[key].append(time.time())
+
+    def _prune_stale(self, cutoff: float) -> None:
+        """清理已过窗口的 IP，避免长期不活跃的条目残留造成内存泄漏。调用方需持锁。"""
+        if len(self._data) <= 4096:
+            return
+        stale = [k for k, v in self._data.items() if not v or v[-1] <= cutoff]
+        for k in stale:
+            self._data.pop(k, None)
 
     def reset(self, key: Optional[str] = None) -> None:
         """Clear rate-limit state. Pass a key to clear only that key, or omit to clear all."""

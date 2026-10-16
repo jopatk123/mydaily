@@ -96,6 +96,8 @@ def login(body: LoginRequest, request: Request):
     if not login_limiter.is_allowed(client_ip):
         raise HTTPException(status_code=429, detail="请求过于频繁，请稍后重试")
     if not hmac.compare_digest(body.password, MYDAILY_PASSWORD):
+        # 只有失败尝试才计入限流窗口，成功登录不占用配额
+        login_limiter.record_failure(client_ip)
         raise HTTPException(status_code=401, detail="密码不正确")
     return LoginResponse(token=generate_token(body.password))
 

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import TodoPanel from '../../features/todos/TodoPanel';
 import { renderWithProviders as render } from '../../test/render';
-import { mockApiUrl, mockTodos, setupDefaultFetch } from './todo-panel-test-utils';
+import { fetchMock, mockApiUrl, mockTodos, setupDefaultFetch } from './todo-panel-test-utils';
 
 describe('TodoPanel — 添加待办', () => {
   beforeEach(() => {
@@ -21,7 +21,7 @@ describe('TodoPanel — 添加待办', () => {
   });
 
   it('应该能通过点击确认按钮添加新待办', async () => {
-    global.fetch
+    fetchMock
       .mockResolvedValueOnce({
         ok: true,
         json: async () => mockTodos,
@@ -45,7 +45,7 @@ describe('TodoPanel — 添加待办', () => {
     fireEvent.click(confirmButton);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         `${mockApiUrl}/todos/`,
         expect.objectContaining({
           method: 'POST',
@@ -57,7 +57,7 @@ describe('TodoPanel — 添加待办', () => {
   });
 
   it('应该能通过按 Enter 键添加新待办', async () => {
-    global.fetch
+    fetchMock
       .mockResolvedValueOnce({
         ok: true,
         json: async () => mockTodos,
@@ -76,10 +76,10 @@ describe('TodoPanel — 添加待办', () => {
 
     const input = screen.getByPlaceholderText('输入待办事项...');
     fireEvent.change(input, { target: { value: '新任务' } });
-    fireEvent.submit(input.closest('form'));
+    fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         `${mockApiUrl}/todos/`,
         expect.objectContaining({
           method: 'POST',

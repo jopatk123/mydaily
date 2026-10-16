@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import TodoPanel from '../../features/todos/TodoPanel';
 import { renderWithProviders as render } from '../../test/render';
-import { mockApiUrl, setupDefaultFetch } from './todo-panel-test-utils';
+import { fetchMock, mockApiUrl, setupDefaultFetch } from './todo-panel-test-utils';
 
 describe('TodoPanel — 渲染与初始加载', () => {
   beforeEach(() => {
@@ -19,7 +19,7 @@ describe('TodoPanel — 渲染与初始加载', () => {
 
   it('加载待办返回 401 时通知上层登出', async () => {
     const onUnauthorized = vi.fn();
-    global.fetch.mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: false,
       status: 401,
       json: async () => ({ detail: 'Token expired' }),
@@ -36,7 +36,7 @@ describe('TodoPanel — 渲染与初始加载', () => {
     render(<TodoPanel />);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(`${mockApiUrl}/todos/`, expect.any(Object));
+      expect(fetchMock).toHaveBeenCalledWith(`${mockApiUrl}/todos/`, expect.any(Object));
     });
   });
 
@@ -60,7 +60,7 @@ describe('TodoPanel — 渲染与初始加载', () => {
   });
 
   it('没有待办时应该显示提示信息', async () => {
-    global.fetch.mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: true,
       json: async () => [],
     });
@@ -76,7 +76,7 @@ describe('TodoPanel — 渲染与初始加载', () => {
   it('API 错误时应该优雅处理', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    global.fetch.mockRejectedValue(new Error('Network error'));
+    fetchMock.mockRejectedValue(new Error('Network error'));
 
     render(<TodoPanel />);
 

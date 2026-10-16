@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import TodoPanel from '../../features/todos/TodoPanel';
 import { renderWithProviders as render } from '../../test/render';
-import { mockApiUrl, mockTodos, setupDefaultFetch } from './todo-panel-test-utils';
+import { fetchMock, mockApiUrl, mockTodos, setupDefaultFetch } from './todo-panel-test-utils';
 
 describe('TodoPanel — 切换/删除/编辑', () => {
   beforeEach(() => {
@@ -10,7 +10,7 @@ describe('TodoPanel — 切换/删除/编辑', () => {
   });
 
   it('应该能切换待办完成状态', async () => {
-    global.fetch
+    fetchMock
       .mockResolvedValueOnce({
         ok: true,
         json: async () => mockTodos,
@@ -26,12 +26,12 @@ describe('TodoPanel — 切换/删除/编辑', () => {
       expect(screen.getByText('完成测试')).toBeInTheDocument();
     });
 
-    const todoItem = screen.getByText('完成测试').closest('div');
-    const toggleButton = todoItem.querySelector('button');
+    const todoItem = screen.getByText('完成测试').closest('div')!;
+    const toggleButton = todoItem.querySelector('button')!;
     fireEvent.click(toggleButton);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         `${mockApiUrl}/todos/1`,
         expect.objectContaining({
           method: 'PUT',
@@ -42,7 +42,7 @@ describe('TodoPanel — 切换/删除/编辑', () => {
   });
 
   it('应该能删除待办事项', async () => {
-    global.fetch
+    fetchMock
       .mockResolvedValueOnce({
         ok: true,
         json: async () => mockTodos,
@@ -58,7 +58,7 @@ describe('TodoPanel — 切换/删除/编辑', () => {
       expect(screen.getByText('完成测试')).toBeInTheDocument();
     });
 
-    const todoItem = screen.getByText('完成测试').closest('div');
+    const todoItem = screen.getByText('完成测试').closest('div')!;
     const deleteButtons = todoItem.querySelectorAll('button');
     const deleteButton = deleteButtons[deleteButtons.length - 1]; // 最后一个按钮是删除按钮
 
@@ -69,7 +69,7 @@ describe('TodoPanel — 切换/删除/编辑', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '删除' }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         `${mockApiUrl}/todos/1`,
         expect.objectContaining({
           method: 'DELETE',
@@ -79,23 +79,24 @@ describe('TodoPanel — 切换/删除/编辑', () => {
   });
 
   it('取消删除时不应该调用 API', async () => {
-    global.confirm = vi.fn(() => false); // 用户点击取消
-
     render(<TodoPanel />);
 
     await waitFor(() => {
       expect(screen.getByText('完成测试')).toBeInTheDocument();
     });
 
-    const todoItem = screen.getByText('完成测试').closest('div');
+    const todoItem = screen.getByText('完成测试').closest('div')!;
     const deleteButtons = todoItem.querySelectorAll('button');
     const deleteButton = deleteButtons[deleteButtons.length - 1];
 
-    const fetchCallsBefore = global.fetch.mock.calls.length;
+    const fetchCallsBefore = fetchMock.mock.calls.length;
     fireEvent.click(deleteButton);
 
-    // 确认 fetch 没有被再次调用
-    expect(global.fetch.mock.calls.length).toBe(fetchCallsBefore);
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+
+    // 取消后不应调用删除 API
+    expect(fetchMock.mock.calls.length).toBe(fetchCallsBefore);
   });
 
   it('点击编辑按钮应该显示内联编辑输入框', async () => {
@@ -105,10 +106,10 @@ describe('TodoPanel — 切换/删除/编辑', () => {
       expect(screen.getByText('完成测试')).toBeInTheDocument();
     });
 
-    const todoItem = screen.getByText('完成测试').closest('div');
+    const todoItem = screen.getByText('完成测试').closest('div')!;
     const editButton = todoItem.querySelector('button[title="编辑"]');
     expect(editButton).toBeInTheDocument();
-    fireEvent.click(editButton);
+    fireEvent.click(editButton!);
 
     await waitFor(() => {
       const input = screen.getByDisplayValue('完成测试');
@@ -132,7 +133,7 @@ describe('TodoPanel — 切换/删除/编辑', () => {
   });
 
   it('编辑后按 Enter 应该保存修改', async () => {
-    global.fetch
+    fetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => mockTodos }) // fetchTodos
       .mockResolvedValueOnce({
         ok: true,
@@ -150,10 +151,10 @@ describe('TodoPanel — 切换/删除/编辑', () => {
 
     const editInput = await screen.findByDisplayValue('完成测试');
     fireEvent.change(editInput, { target: { value: '修改后的标题' } });
-    fireEvent.submit(editInput.closest('form'));
+    fireEvent.submit(editInput.closest('form')!);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         `${mockApiUrl}/todos/1`,
         expect.objectContaining({
           method: 'PUT',
@@ -194,10 +195,10 @@ describe('TodoPanel — 切换/删除/编辑', () => {
     fireEvent.dblClick(titleSpan);
 
     const editInput = await screen.findByDisplayValue('完成测试');
-    const fetchCallsBefore = global.fetch.mock.calls.length;
-    fireEvent.submit(editInput.closest('form'));
+    const fetchCallsBefore = fetchMock.mock.calls.length;
+    fireEvent.submit(editInput.closest('form')!);
 
-    expect(global.fetch.mock.calls.length).toBe(fetchCallsBefore);
+    expect(fetchMock.mock.calls.length).toBe(fetchCallsBefore);
   });
 
   it('已完成的待办不应该显示编辑按钮', async () => {
@@ -207,7 +208,7 @@ describe('TodoPanel — 切换/删除/编辑', () => {
       expect(screen.getByText('已完成的任务')).toBeInTheDocument();
     });
 
-    const completedItem = screen.getByText('已完成的任务').closest('div');
+    const completedItem = screen.getByText('已完成的任务').closest('div')!;
     const editButton = completedItem.querySelector('button[title="编辑"]');
     expect(editButton).toBeNull();
   });
@@ -227,7 +228,7 @@ describe('TodoPanel — 批量清除已完成', () => {
   });
 
   it('没有已完成待办时不应显示"清除已完成"按钮', async () => {
-    global.fetch.mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: true,
       json: async () => [
         { id: 1, title: '未完成1', completed: false, created_at: '2026-02-03T10:00:00' },
@@ -244,11 +245,9 @@ describe('TodoPanel — 批量清除已完成', () => {
   });
 
   it('点击"清除已完成"应该删除所有已完成的待办', async () => {
-    global.fetch
+    fetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => mockTodos }) // fetchTodos
       .mockResolvedValue({ ok: true, json: async () => ({ ok: true }) }); // DELETE * N
-
-    global.confirm = vi.fn(() => true);
 
     render(<TodoPanel />);
 
@@ -263,7 +262,7 @@ describe('TodoPanel — 批量清除已完成', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '清除' }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         `${mockApiUrl}/todos/3`,
         expect.objectContaining({ method: 'DELETE' }),
       );
@@ -271,17 +270,18 @@ describe('TodoPanel — 批量清除已完成', () => {
   });
 
   it('取消清除时不应该调用删除 API', async () => {
-    global.confirm = vi.fn(() => false);
-
     render(<TodoPanel />);
 
     await waitFor(() => {
       expect(screen.getByText('清除已完成')).toBeInTheDocument();
     });
 
-    const fetchCallsBefore = global.fetch.mock.calls.length;
+    const fetchCallsBefore = fetchMock.mock.calls.length;
     fireEvent.click(screen.getByText('清除已完成'));
 
-    expect(global.fetch.mock.calls.length).toBe(fetchCallsBefore);
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+
+    expect(fetchMock.mock.calls.length).toBe(fetchCallsBefore);
   });
 });

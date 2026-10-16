@@ -2,25 +2,28 @@ import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from 'vite
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import App from '../App';
 
+type FetchResponder = (url: string, options?: RequestInit) => Promise<unknown>;
+
 // Mock fetch API
-globalThis.fetch = vi.fn();
+const fetchMock = vi.fn();
+vi.stubGlobal('fetch', fetchMock);
 const AUTH_STORAGE_KEY = 'mydaily_auth';
 
 beforeAll(() => {
-  if (!global.URL.createObjectURL) {
-    global.URL.createObjectURL = vi.fn(() => 'blob:mock');
+  if (!URL.createObjectURL) {
+    URL.createObjectURL = vi.fn(() => 'blob:mock');
   }
-  if (!global.URL.revokeObjectURL) {
-    global.URL.revokeObjectURL = vi.fn();
+  if (!URL.revokeObjectURL) {
+    URL.revokeObjectURL = vi.fn();
   }
 });
 
-function createFetchResponse(data) {
+function createFetchResponse(data: unknown) {
   return { ok: true, json: () => Promise.resolve(data) };
 }
 
-function mockFetchByUrl(handlers) {
-  fetch.mockImplementation((url, options) => {
+function mockFetchByUrl(handlers: Array<readonly [string | RegExp, FetchResponder]>) {
+  fetchMock.mockImplementation((url: RequestInfo | URL, options?: RequestInit) => {
     const key = typeof url === 'string' ? url : String(url);
     for (const [matcher, responder] of handlers) {
       if (typeof matcher === 'string' && key.includes(matcher)) return responder(key, options);
@@ -32,7 +35,7 @@ function mockFetchByUrl(handlers) {
 
 describe('App', () => {
   beforeEach(() => {
-    fetch.mockReset();
+    fetchMock.mockReset();
     localStorage.setItem(
       AUTH_STORAGE_KEY,
       JSON.stringify({ token: 'test-token', expiresAt: Date.now() + 1000 * 60 * 60 * 24 }),
@@ -43,7 +46,7 @@ describe('App', () => {
     localStorage.clear();
   });
 
-  const toYmd = (d) => {
+  const toYmd = (d: Date) => {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
@@ -157,7 +160,7 @@ describe('App', () => {
 
     await waitFor(() => {
       // initial /entries + initial /entries/dates + POST /entries + refetch /entries + refetch /entries/dates
-      expect(fetch).toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalled();
     });
   });
 
@@ -322,7 +325,7 @@ describe('App', () => {
     fireEvent.click(exportButton);
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/entries/export/'),
         expect.any(Object),
       );

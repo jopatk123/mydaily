@@ -1,6 +1,6 @@
 # 前端重构方案
 
-> 状态：已实施（2026-10-16）。与原稿的差别：测试继续用 fetch mock（没有引入 MSW）；确认框在支持的浏览器里用原生 `dialog.showModal`。
+> 状态：已实施（2026-10-16）。与原稿的差别：测试继续用共享的 `fetch` mock（没有引入 MSW），且已全部迁移为 TypeScript；UI 原子组件只落地了 `ConfirmDialog`，其余样式以 Tailwind 工具类内联在页面/组件里；401 统一在数据层处理（`api/client.ts` 清凭据 + `queries/notify.ts` 抑制多余 Toast）；确认框在支持的浏览器里用原生 `dialog.showModal`。
 > 范围：`frontend/` 全量重构；后端接口契约不变。
 
 ## 1. 背景
@@ -37,7 +37,7 @@
 | 确认框   | 自研 `ConfirmDialog`（原生 `<dialog>`）  | 返回 Promise 的 `useConfirm()`               |
 | 图标     | lucide-react（最新）                     |                                              |
 | 日期     | date-fns v4                              |                                              |
-| 测试     | Vitest + Testing Library + MSW           | MSW 取代手写 `fetch` mock                    |
+| 测试     | Vitest + Testing Library + coverage-v8   | 沿用共享 `fetch` mock；测试用例全部为 TypeScript |
 | 规范     | ESLint 9 flat config + typescript-eslint | 保留 `max-lines` 600 警告 / 800 报错         |
 
 ## 4. 目录结构
@@ -45,31 +45,37 @@
 ```
 frontend/src/
 ├── main.tsx                 # 挂载 QueryClientProvider、RouterProvider、Toaster
-├── router.tsx               # 路由表
+├── App.tsx                  # 组合 QueryClient / Theme / Confirm Provider 与路由
+├── router.tsx               # 路由表 + RequireAuth 守卫
+├── vite-env.d.ts
 ├── api/
-│   ├── client.ts            # request / ApiError / 401 全局回调 / 时区参数
+│   ├── client.ts            # request / ApiError / 401 清凭据 / 时区参数
 │   ├── auth.ts              # token 存取与过期解析
 │   ├── entries.ts           # 日记接口（纯函数）
-│   ├── todos.ts
-│   └── types.ts             # 与 backend/models.py 对齐的类型
+│   ├── todos.ts             # 待办接口（纯函数）
+│   ├── types.ts             # 与 backend/models.py 对齐的类型
+│   └── index.ts             # 统一导出
 ├── queries/                 # TanStack Query 封装
+│   ├── client.ts            # QueryClient 默认配置（retry / staleTime）
 │   ├── keys.ts              # query key 工厂
+│   ├── notify.ts            # mutation 失败统一提示（401 抑制 Toast）
 │   ├── entries.ts           # useEntries / useEntry / useEntryDates / 增删改置顶 mutation
-│   └── todos.ts
+│   └── todos.ts             # 待办 query / mutation
 ├── features/
-│   ├── auth/                # LoginPage、RequireAuth、useAuth
-│   ├── entries/             # 列表、卡片、详情、编辑器、筛选、导出
-│   ├── calendar/            # CalendarPanel、useCalendar
-│   ├── todos/               # TodoPanel、TodoItem、TodoInput
-│   └── theme/               # ThemeToggle、useTheme
-├── components/ui/           # Button、IconButton、Card、Dialog、Badge、Skeleton、Tabs
+│   ├── auth/LoginPage.tsx   # RequireAuth 守卫在 router.tsx
+│   ├── entries/             # EntryListPage、EntryList、EntryDetailPage、EntryEditorPage、MarkdownView
+│   ├── calendar/CalendarPanel.tsx
+│   ├── todos/TodoPanel.tsx  # 列表 / 输入 / 内联编辑都在单文件内
+│   └── theme/ThemeProvider.tsx
+├── components/ui/ConfirmDialog.tsx   # 目前唯一的 UI 原子组件（其余样式走 Tailwind 工具类）
 ├── layouts/AppLayout.tsx    # 页头、侧栏、主区、移动端 FAB
 ├── lib/
 │   ├── dates.ts             # parseEntryDate、formatEntryDate、toYmd
 │   ├── markdown.ts          # 摘要用的去 Markdown 纯文本
+│   ├── draft.ts             # 新建页草稿的本地存取
 │   └── download.ts          # JSON 导出下载
 ├── styles/index.css         # Tailwind 入口 + @theme 设计变量
-└── test/                    # setup、MSW handlers、renderWithProviders
+└── test/                    # setup、renderWithProviders、api / routes / markdown 测试
 ```
 
 ## 5. 路由设计
@@ -87,13 +93,14 @@ frontend/src/
 
 后续可选：把后端 API 统一迁到 `/api/*`，即可删掉 `_API_PREFIXES` 白名单和前端的这条约束。这一项涉及接口契约，不在本次范围内。
 
-筛选条件放进 URL 后，刷新和后退都能保留筛选状态，原有 `FilterChips` 只负责读写查询串。
+筛选条件放进 URL 后，刷新和后退都能保留筛选状态；首页的搜索框与日历组件直接读写查询串（`?q=` / `?date=`）。
 
 ## 6. 数据层设计
 
 **API 客户端**
 
-- `client.ts` 统一处理：附带 Bearer token、解析错误体为 `ApiError`、收到 401 时调用注册的 `onUnauthorized` 回调（清除 token、清空 Query 缓存、跳转 `/login`）。组件内不再出现 401 判断。
+- `client.ts` 统一处理：附带 Bearer token、解析错误体为 `ApiError`、收到 401 时清除本地凭据（`clearAuth()` → `RequireAuth` 感知后重定向 `/login`）。
+- mutation 失败提示统一走 `queries/notify.ts` 的 `notifyMutationError`：401 交给上面的登出流程，其余错误才弹 Toast，避免每个 mutation 各写一遍 401 判断。
 - `withTimeZone` 保留在客户端层，由 `entries.ts` 统一附加，调用方无感知。
 
 **Query key**
@@ -112,7 +119,7 @@ todoKeys = { all: ['todos'] };
 
 - 搜索输入 250ms 防抖后写入 URL，`useEntries(filter)` 自动按 key 请求；过期请求的结果由 TanStack Query 丢弃，替代 `lastFetchSeq`。
 - 新建、编辑、删除成功后，让 `entries` 下所有缓存失效（`invalidateQueries`），其中包括日历标记日期。
-- 置顶、待办的勾选 / 改名 / 删除采用乐观更新：`onMutate` 写缓存，`onError` 回滚并弹出 Toast，`onSettled` 失效重拉。置顶后的排序以服务端返回为准，删除前端重复的排序逻辑。
+- 置顶、待办的勾选 / 改名 / 删除采用乐观更新：`onMutate` 写缓存，`onError` 回滚并弹出 Toast，`onSettled` 失效重拉。置顶后的最终顺序以服务端返回为准；前端只在乐观阶段临时按「置顶优先、时间倒序」排序（`queries/entries.ts` 的 `sortEntries`），`onSettled` 重拉后即回到服务端顺序。
 - 详情页优先用列表缓存作为 `initialData`，从列表点进去时不闪加载态。
 - "清除已完成待办"仍是逐条 `DELETE`，改用 `Promise.allSettled`，部分失败时提示数量并重拉。
 
@@ -159,7 +166,7 @@ todoKeys = { all: ['todos'] };
 | 1    | 升级工具链：Vite、Vitest、ESLint 9 flat config、Prettier、jsdom、Testing Library                                           | 现有 47 个测试原样通过，lint 通过                       |
 | 2    | 升级 React 19、Tailwind 4（`@tailwindcss/vite`，删 `tailwind.config.js` / `postcss.config.js`）、lucide-react、date-fns v4 | 界面与升级前一致（人工对比截图），测试通过              |
 | 3    | 接入 TypeScript：`tsconfig`、`api/` 与 `lib/` 改 TS、类型定义；组件暂时允许 `.jsx` 与 `.tsx` 并存                          | `tsc` 通过                                              |
-| 4    | 测试基础设施：MSW handlers、`renderWithProviders`；把 `App.test.jsx` 按功能拆分并迁到 MSW                                  | 用例数不减少，覆盖原有场景                              |
+| 4    | 测试基础设施：`renderWithProviders` 与共享 `fetch` mock；把 `App.test.jsx` 按功能拆分                                          | 用例数不减少，覆盖原有场景                              |
 | 5    | TanStack Query：`queries/`、全局 401 处理；拆掉 `App.jsx` 的数据逻辑                                                       | 删除 `lastFetchSeq` 和手动 refetch；测试通过            |
 | 6    | 路由：`router.tsx`、`AppLayout`、页面组件；筛选条件进 URL；全部组件改为 `.tsx`                                             | 后退、刷新、直达 `/diary/:id` 均正常；新增路由测试      |
 | 7    | UI 原子组件 + 设计变量 + 暗色模式；先出样式预览给你确认                                                                    | 你确认视觉方向                                          |
@@ -172,8 +179,8 @@ todoKeys = { all: ['todos'] };
 ## 10. 测试策略
 
 - **单元测试**：`lib/` 下的纯函数（日期、Markdown 摘要、token 解析）。
-- **Hook 测试**：`queries/` 的乐观更新与回滚、401 跳转。
-- **组件 / 页面测试**：用 MSW 模拟后端，覆盖登录、列表筛选、新建、编辑、删除、置顶、导出、待办增删改、草稿拦截、Markdown 渲染（包括 `<script>` 不被执行的 XSS 用例）。
+- **查询逻辑**：`queries/` 的乐观更新与回滚、401 抑制提示目前由页面测试间接覆盖，尚未单测 hook 本身。
+- **组件 / 页面测试**：用共享的 `fetch` mock 模拟后端，覆盖登录、列表筛选、新建、编辑、删除、置顶、导出、待办增删改、草稿拦截、Markdown 渲染（包括 `<script>` 不被执行的 XSS 用例）。
 - **路由测试**：直达 `/diary/:id`；未登录访问时跳转 `/login`；前端路径与 API 前缀不冲突。
 - 本次不引入 Playwright。若之后需要端到端冒烟测试，可单独加一个 CI job。
 

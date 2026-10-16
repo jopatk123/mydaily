@@ -1,13 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { ApiError } from '../api/client';
 import { createTodo, deleteTodo, listTodos, updateTodo } from '../api/todos';
 import type { Todo } from '../api/types';
 import { todoKeys } from './keys';
-
-function isUnauthorized(error: unknown) {
-  return error instanceof ApiError && error.status === 401;
-}
+import { notifyMutationError } from './notify';
 
 export function useTodos() {
   return useQuery({
@@ -24,9 +19,7 @@ export function useAddTodo() {
   return useMutation({
     mutationFn: createTodo,
     onSuccess: () => client.invalidateQueries({ queryKey: todoKeys.all }),
-    onError: (error) => {
-      if (!isUnauthorized(error)) toast.error('添加待办失败，请稍后重试。');
-    },
+    onError: (error) => notifyMutationError(error, '添加待办失败，请稍后重试。'),
   });
 }
 
@@ -48,7 +41,7 @@ export function useUpdateTodo() {
     },
     onError: (error, _vars, context) => {
       if (context?.previous) client.setQueryData(todoKeys.all, context.previous);
-      if (!isUnauthorized(error)) toast.error('更新待办失败，请稍后重试。');
+      notifyMutationError(error, '更新待办失败，请稍后重试。');
     },
     onSettled: () => client.invalidateQueries({ queryKey: todoKeys.all }),
   });
@@ -70,7 +63,7 @@ export function useDeleteTodo() {
     },
     onError: (error, _id, context) => {
       if (context?.previous) client.setQueryData(todoKeys.all, context.previous);
-      if (!isUnauthorized(error)) toast.error('删除待办失败，请稍后重试。');
+      notifyMutationError(error, '删除待办失败，请稍后重试。');
     },
     onSettled: () => client.invalidateQueries({ queryKey: todoKeys.all }),
   });
@@ -96,7 +89,7 @@ export function useClearCompletedTodos() {
     },
     onError: (error, _vars, context) => {
       if (context?.previous) client.setQueryData(todoKeys.all, context.previous);
-      if (!isUnauthorized(error)) toast.error('清除失败，请稍后重试。');
+      notifyMutationError(error, '清除失败，请稍后重试。');
     },
     onSettled: () => client.invalidateQueries({ queryKey: todoKeys.all }),
   });

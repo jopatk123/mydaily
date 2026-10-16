@@ -31,22 +31,28 @@ export default function EntryEditorPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tab, setTab] = useState<'edit' | 'preview'>('edit');
-  const [hydratedId, setHydratedId] = useState<number | 'new' | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const bypassRef = useRef(false);
   const askedDraft = useRef(false);
+  // 记录已回填的表单来源，避免在渲染阶段调用 setState 造成重复渲染。
+  const hydratedIdRef = useRef<number | 'new' | null>(null);
 
-  if (isEditing && entry && hydratedId !== entry.id) {
-    setHydratedId(entry.id);
-    setTitle(entry.title);
-    setContent(entry.content);
-  }
-  if (!isEditing && hydratedId !== 'new') {
-    setHydratedId('new');
-    setTitle('');
-    setContent('');
-  }
+  useEffect(() => {
+    if (isEditing) {
+      if (entry && hydratedIdRef.current !== entry.id) {
+        hydratedIdRef.current = entry.id;
+        setTitle(entry.title);
+        setContent(entry.content);
+      }
+      return;
+    }
+    if (hydratedIdRef.current !== 'new') {
+      hydratedIdRef.current = 'new';
+      setTitle('');
+      setContent('');
+    }
+  }, [entry, isEditing]);
 
   const dirty = isEditing
     ? Boolean(entry) && (title !== entry?.title || content !== entry?.content)
@@ -77,6 +83,7 @@ export default function EntryEditorPage() {
     if (!dirty) return;
     const onLeave = (event: BeforeUnloadEvent) => {
       event.preventDefault();
+      event.returnValue = '';
     };
     window.addEventListener('beforeunload', onLeave);
     return () => window.removeEventListener('beforeunload', onLeave);

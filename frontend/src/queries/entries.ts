@@ -10,13 +10,9 @@ import {
   pinEntry,
   updateEntry,
 } from '../api/entries';
-import { ApiError } from '../api/client';
 import type { DiaryEntry, EntryFilter } from '../api/types';
 import { entryKeys } from './keys';
-
-function isUnauthorized(error: unknown) {
-  return error instanceof ApiError && error.status === 401;
-}
+import { notifyMutationError } from './notify';
 
 function findCachedEntry(client: ReturnType<typeof useQueryClient>, id: number) {
   const lists = client.getQueriesData<DiaryEntry[]>({ queryKey: entryKeys.lists() });
@@ -79,10 +75,7 @@ export function useCreateEntry() {
       void invalidate();
       toast.success('日记已发布');
     },
-    onError: (error) => {
-      if (isUnauthorized(error)) return;
-      toast.error('保存失败，请稍后重试。');
-    },
+    onError: (error) => notifyMutationError(error, '保存失败，请稍后重试。'),
   });
 }
 
@@ -97,10 +90,7 @@ export function useUpdateEntry() {
       void invalidate();
       toast.success('修改已保存');
     },
-    onError: (error) => {
-      if (isUnauthorized(error)) return;
-      toast.error('保存失败，请稍后重试。');
-    },
+    onError: (error) => notifyMutationError(error, '保存失败，请稍后重试。'),
   });
 }
 
@@ -112,10 +102,7 @@ export function useDeleteEntry() {
       void invalidate();
       toast.success('日记已删除');
     },
-    onError: (error) => {
-      if (isUnauthorized(error)) return;
-      toast.error('删除失败，请稍后重试。');
-    },
+    onError: (error) => notifyMutationError(error, '删除失败，请稍后重试。'),
   });
 }
 
@@ -145,7 +132,7 @@ export function usePinEntry() {
     onError: (error, id, context) => {
       context?.snapshots.forEach(([key, entries]) => client.setQueryData(key, entries));
       if (context?.detail) client.setQueryData(entryKeys.detail(id), context.detail);
-      if (!isUnauthorized(error)) toast.error('操作失败，请稍后重试。');
+      notifyMutationError(error, '操作失败，请稍后重试。');
     },
     onSettled: () => {
       void client.invalidateQueries({ queryKey: entryKeys.all });
@@ -156,9 +143,6 @@ export function usePinEntry() {
 export function useExportEntries() {
   return useMutation({
     mutationFn: exportEntries,
-    onError: (error) => {
-      if (isUnauthorized(error)) return;
-      toast.error('导出失败，请稍后重试。');
-    },
+    onError: (error) => notifyMutationError(error, '导出失败，请稍后重试。'),
   });
 }

@@ -17,6 +17,14 @@ TARGET="${1:-all}"
 PY=""
 PRE_COMMIT=""
 
+# 是否运行在 GitHub Actions 中：只认 GITHUB_ACTIONS。
+# 不能用 CI——很多本地环境也会把 CI 设为 true，会误判为 CI 而跳过本地依赖准备。
+if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+  IN_CI=1
+else
+  IN_CI=0
+fi
+
 step() {
   echo ""
   echo "==> $*"
@@ -27,7 +35,7 @@ ensure_python() {
     return
   fi
 
-  if [[ "${CI:-}" == "true" ]]; then
+  if [[ "$IN_CI" == "1" ]]; then
     if command -v python3 >/dev/null 2>&1; then
       PY="$(command -v python3)"
     else
@@ -65,7 +73,7 @@ ensure_python() {
 }
 
 ensure_node() {
-  if [[ "${CI:-}" == "true" ]]; then
+  if [[ "$IN_CI" == "1" ]]; then
     return
   fi
   if ! command -v node >/dev/null 2>&1; then
@@ -144,7 +152,7 @@ case "$TARGET" in
     ;;
 esac
 
-if [[ "${CI:-}" != "true" ]]; then
+if [[ "$IN_CI" == "0" ]]; then
   trap on_error ERR
 fi
 
@@ -162,6 +170,6 @@ esac
 trap - ERR
 echo ""
 echo "本地 CI 通过: ${TARGET}"
-if [[ "${CI:-}" != "true" ]]; then
+if [[ "$IN_CI" == "0" ]]; then
   echo "镜像构建在以上检查通过后由 GitHub Actions 的 docker-build 执行。"
 fi

@@ -52,14 +52,13 @@ export function useEntryDates() {
 
 export function useEntry(id: number | null) {
   const client = useQueryClient();
-  const query = useQuery({
+  return useQuery({
     queryKey: entryKeys.detail(id ?? 0),
     queryFn: () => getEntry(id as number),
     enabled: id !== null,
+    // 从列表点进详情时用列表缓存做占位，避免闪一下加载态。
     placeholderData: () => (id === null ? undefined : findCachedEntry(client, id)),
   });
-  const fallback = id === null ? undefined : findCachedEntry(client, id);
-  return { ...query, data: query.data ?? fallback };
 }
 
 function useInvalidateEntries() {

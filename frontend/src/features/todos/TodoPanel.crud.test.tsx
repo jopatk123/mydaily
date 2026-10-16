@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor, within } from '@testing-library/react';
-import TodoPanel from '../../features/todos/TodoPanel';
+import TodoPanel from './TodoPanel';
 import { renderWithProviders as render } from '../../test/render';
 import { fetchMock, mockApiUrl, mockTodos, setupDefaultFetch } from './todo-panel-test-utils';
 

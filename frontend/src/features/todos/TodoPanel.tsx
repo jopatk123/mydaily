@@ -1,8 +1,8 @@
 import { Check, CheckCircle2, Circle, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ApiError } from '../../api/client';
 import type { Todo } from '../../api/types';
 import { useConfirm } from '../../components/ui/ConfirmDialog';
+import { notifyMutationError } from '../../queries/notify';
 import {
   useAddTodo,
   useClearCompletedTodos,
@@ -11,11 +11,7 @@ import {
   useUpdateTodo,
 } from '../../queries/todos';
 
-interface TodoPanelProps {
-  onUnauthorized?: () => void;
-}
-
-export default function TodoPanel({ onUnauthorized }: TodoPanelProps) {
+export default function TodoPanel() {
   const confirm = useConfirm();
   const query = useTodos();
   const addTodo = useAddTodo();
@@ -30,14 +26,9 @@ export default function TodoPanel({ onUnauthorized }: TodoPanelProps) {
 
   const todos = query.data ?? [];
 
+  // 加载失败统一走 Toast 提示；401 由数据层清除凭据并跳转登录，此处不再重复提示。
   useEffect(() => {
-    if (query.error instanceof ApiError && query.error.status === 401) onUnauthorized?.();
-  }, [query.error, onUnauthorized]);
-
-  useEffect(() => {
-    if (query.error && !(query.error instanceof ApiError && query.error.status === 401)) {
-      console.error('Error fetching todos:', query.error);
-    }
+    if (query.error) notifyMutationError(query.error, '待办加载失败，请稍后重试。');
   }, [query.error]);
 
   useEffect(() => {

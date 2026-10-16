@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import TodoPanel from '../../features/todos/TodoPanel';
+import { toast } from 'sonner';
+import TodoPanel from './TodoPanel';
 import { renderWithProviders as render } from '../../test/render';
 import { fetchMock, mockApiUrl, setupDefaultFetch } from './todo-panel-test-utils';
+
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), message: vi.fn() } }));
 
 describe('TodoPanel — 渲染与初始加载', () => {
   beforeEach(() => {
@@ -14,21 +17,6 @@ describe('TodoPanel — 渲染与初始加载', () => {
 
     await waitFor(() => {
       expect(screen.getByText('待办事项')).toBeInTheDocument();
-    });
-  });
-
-  it('加载待办返回 401 时通知上层登出', async () => {
-    const onUnauthorized = vi.fn();
-    fetchMock.mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: async () => ({ detail: 'Token expired' }),
-    });
-
-    render(<TodoPanel onUnauthorized={onUnauthorized} />);
-
-    await waitFor(() => {
-      expect(onUnauthorized).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -73,18 +61,30 @@ describe('TodoPanel — 渲染与初始加载', () => {
     });
   });
 
-  it('API 错误时应该优雅处理', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-
+  it('加载待办失败时应该提示错误', async () => {
     fetchMock.mockRejectedValue(new Error('Network error'));
 
     render(<TodoPanel />);
 
     await waitFor(() => {
-      expect(consoleError).toHaveBeenCalledWith('Error fetching todos:', expect.any(Error));
+      expect(toast.error).toHaveBeenCalledWith('待办加载失败，请稍后重试。');
+    });
+  });
+
+  it('加载待办返回 401 时不应该弹出错误提示', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ detail: 'Token expired' }),
     });
 
-    consoleError.mockRestore();
+    render(<TodoPanel />);
+
+    // 等错误真正落到 UI（空列表提示）后再断言，避免断言早于请求 settle
+    await waitFor(() => {
+      expect(screen.getByText(/还没有待办事项/)).toBeInTheDocument();
+    });
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it('未完成的待办应该排在已完成的前面', async () => {

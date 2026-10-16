@@ -10,8 +10,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# 锚定到仓库根：仓库里存在 frontend/src/lib、scripts/lib 等源码目录，
+# 不加前导 / 会被这些通用规则误匹配，导致源码文件丢失、CI 无法构建。
+/lib/
+/lib64/
 parts/
 sdist/
 var/

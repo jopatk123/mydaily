@@ -470,15 +470,17 @@ describe('App', () => {
       content: '新内容',
       created_at: '2024-01-01T12:00:00',
     };
+    let currentEntry = mockEntries[0];
     mockFetchByUrl([
       ['/entries/dates/', () => Promise.resolve(createFetchResponse(['2024-01-01']))],
       [
         new RegExp(`/entries/9$`),
         (_url, options) => {
           if (options?.method === 'PUT') {
+            currentEntry = updatedEntry;
             return Promise.resolve(createFetchResponse(updatedEntry));
           }
-          return Promise.resolve(createFetchResponse(mockEntries[0]));
+          return Promise.resolve(createFetchResponse(currentEntry));
         },
       ],
       ['/entries/', () => Promise.resolve(createFetchResponse(mockEntries))],

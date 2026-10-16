@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import TodoPanel from '../TodoPanel';
+import { screen, waitFor } from '@testing-library/react';
+import TodoPanel from '../../features/todos/TodoPanel';
+import { renderWithProviders as render } from '../../test/render';
 import { mockApiUrl, setupDefaultFetch } from './todo-panel-test-utils';
 
 describe('TodoPanel — 渲染与初始加载', () => {

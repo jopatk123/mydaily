@@ -1,0 +1,85 @@
+@import 'tailwindcss';
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-serif:
+    'Iowan Old Style', 'Palatino Linotype', 'Songti SC', 'STSong', 'Noto Serif SC', serif;
+  --color-paper: #faf6ef;
+  --color-card: #fffdf8;
+  --color-ink: #2c261f;
+  --color-muted: #8a7e72;
+  --color-accent: #9c4330;
+  --color-accent-ink: #fffaf6;
+  --color-pin: #a16207;
+  --color-rule: #e6dccb;
+  --color-danger: #9f1239;
+}
+
+.dark {
+  --color-paper: #1b1916;
+  --color-card: #26221d;
+  --color-ink: #f3ecdf;
+  --color-muted: #b3a79a;
+  --color-accent: #e7a08f;
+  --color-accent-ink: #2a120e;
+  --color-pin: #f5c16c;
+  --color-rule: #3a342c;
+  --color-danger: #fb7185;
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(
+        1200px 500px at 10% -10%,
+        color-mix(in srgb, var(--color-accent) 8%, transparent),
+        transparent 50%
+      ),
+      var(--color-paper);
+    color: var(--color-ink);
+    font-family:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
+      'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  }
+
+  button,
+  input,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .ruled {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 31px,
+      var(--color-rule) 32px
+    );
+    background-attachment: local;
+    line-height: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

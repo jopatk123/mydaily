@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import TodoPanel from '../TodoPanel';
+import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import TodoPanel from '../../features/todos/TodoPanel';
+import { renderWithProviders as render } from '../../test/render';
 import { mockApiUrl, mockTodos, setupDefaultFetch } from './todo-panel-test-utils';
 
 describe('TodoPanel — 切换/删除/编辑', () => {
@@ -63,8 +64,11 @@ describe('TodoPanel — 切换/删除/编辑', () => {
 
     fireEvent.click(deleteButton);
 
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('确定要删除 "完成测试" 吗？');
+    fireEvent.click(within(dialog).getByRole('button', { name: '删除' }));
+
     await waitFor(() => {
-      expect(global.confirm).toHaveBeenCalledWith('确定要删除 "完成测试" 吗？');
       expect(global.fetch).toHaveBeenCalledWith(
         `${mockApiUrl}/todos/1`,
         expect.objectContaining({
@@ -254,8 +258,11 @@ describe('TodoPanel — 批量清除已完成', () => {
 
     fireEvent.click(screen.getByText('清除已完成'));
 
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('确定要清除 1 个已完成的待办吗？');
+    fireEvent.click(within(dialog).getByRole('button', { name: '清除' }));
+
     await waitFor(() => {
-      expect(global.confirm).toHaveBeenCalledWith('确定要清除 1 个已完成的待办吗？');
       expect(global.fetch).toHaveBeenCalledWith(
         `${mockApiUrl}/todos/3`,
         expect.objectContaining({ method: 'DELETE' }),

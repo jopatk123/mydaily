@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import TodoPanel from '../TodoPanel';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import TodoPanel from '../../features/todos/TodoPanel';
+import { renderWithProviders as render } from '../../test/render';
 import { mockApiUrl, mockTodos, setupDefaultFetch } from './todo-panel-test-utils';
 
 describe('TodoPanel — 添加待办', () => {

@@ -21,13 +21,15 @@ docker-compose up --build
 - 一键导出全部日记（JSON 格式）
 - 启动时密码保护，30 天本地有效期
 - 待办事项面板（支持增删改查）
-- 简洁、无干扰的界面
+- 纸质手账风格，支持跟随系统的深色模式
+- 日记正文支持 Markdown
 - 支持 Docker 容器化部署
 
 ### 技术栈
 
 - 后端：Python 3.11+、FastAPI、SQLModel（SQLite）
-- 前端：React 18、Vite、Tailwind CSS
+- 前端：React 19、TypeScript、Vite、Tailwind CSS 4、TanStack Query
+- 浏览器：Safari 16.4+、Chrome 111+、Firefox 128+（Tailwind CSS 4 的样式依赖这些版本）
 - 部署：Docker Compose
 - CI/CD：GitHub Actions
 
@@ -160,12 +162,13 @@ mydaily/
 │   └── requirements.txt  # Python 依赖
 ├── frontend/             # React 前端
 │   ├── src/
-│   │   ├── App.jsx       # 主应用组件
-│   │   ├── api.js        # API 客户端
-│   │   ├── components/   # 可复用组件
-│   │   └── test/         # 测试文件
+│   │   ├── App.tsx       # 应用入口：查询、主题、确认框
+│   │   ├── router.tsx    # 路由（/、/new、/diary/:id）
+│   │   ├── api/          # API 客户端与类型
+│   │   ├── features/     # 日记、日历、待办、登录、主题
+│   │   └── test/         # 测试
 │   ├── package.json      # Node.js 依赖
-│   └── vite.config.js    # Vite 配置
+│   └── vite.config.ts    # Vite 配置
 ├── scripts/              # 开发脚本
 ├── data/                 # 本地数据库（.gitignore'd）
 ├── Dockerfile            # 多阶段构建

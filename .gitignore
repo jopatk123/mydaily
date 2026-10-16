@@ -34,6 +34,7 @@ coverage.xml
 env/
 venv/
 ENV/
+.cache/
 
 # Node.js
 node_modules/

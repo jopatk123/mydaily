@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-local dev-backend dev-frontend test test-backend test-frontend lint lint-backend lint-frontend format build clean docker-up docker-down docker-logs
+.PHONY: help install dev dev-local dev-backend dev-frontend test test-backend test-frontend lint lint-backend lint-frontend format build ci install-hooks clean docker-up docker-down docker-logs
 
 help:
 	@echo "MyDaily Development Commands"
@@ -17,12 +17,14 @@ help:
 	@echo "  lint           Run linters"
 	@echo "  format         Format code"
 	@echo "  build          Build for production"
+	@echo "  ci             Run the same checks as GitHub Actions"
+	@echo "  install-hooks  Install the pre-push hook that runs make ci"
 	@echo "  clean          Clean build artifacts"
 	@echo "  docker-up      Start Docker containers (detached)"
 	@echo "  docker-down    Stop Docker containers"
 	@echo "  docker-logs    View Docker container logs"
 
-install:
+install: install-hooks
 	cd backend && python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 	cd backend && ./venv/bin/pip install pytest pytest-cov httpx black isort flake8
 	cd frontend && npm install
@@ -69,7 +71,7 @@ lint-backend:
 	fi
 
 lint-frontend:
-	cd frontend && npm run lint
+	cd frontend && npm run lint && npm run format:check
 
 format:
 	@if [ -x backend/venv/bin/black ]; then \
@@ -81,6 +83,15 @@ format:
 
 build:
 	cd frontend && npm run build
+
+# 与 .github/workflows/ci.yml 相同的检查（后端 lint/测试、前端 lint/格式/测试/构建、pre-commit）。
+ci:
+	bash scripts/ci-local.sh
+
+install-hooks:
+	mkdir -p .git/hooks
+	ln -sfn ../../.githooks/pre-push .git/hooks/pre-push
+	chmod +x .githooks/pre-push scripts/ci-local.sh
 
 clean:
 	rm -rf frontend/dist

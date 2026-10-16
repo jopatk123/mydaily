@@ -38,7 +38,7 @@ docker-compose up --build
 ### 前置条件
 
 - **Docker 及 Docker Compose**（推荐用于快速体验）
-- **Node.js 18+**（本地开发必需）
+- **Node.js 22**（本地开发必需，与 CI 一致）
 - **Python 3.11+**（本地开发必需）
 
 ### 方式一：使用 Docker（推荐）
@@ -106,9 +106,11 @@ make dev-backend    # 仅启动后端
 make dev-frontend   # 仅启动前端
 
 make test           # 运行所有测试
-make lint           # 运行代码检查
-make format         # 格式化后端代码
+make lint           # 运行代码检查（含前端 Prettier）
+make format         # 格式化代码
 make build          # 构建前端生产版本
+make ci             # 运行与 GitHub Actions 相同的检查
+make install-hooks  # 安装 pre-push 钩子（推送前自动执行 make ci）
 make clean          # 清理构建文件
 
 make docker-up      # 后台启动 Docker 容器
@@ -127,6 +129,17 @@ cd backend && ./venv/bin/pytest -v --cov=.
 
 # 前端测试
 cd frontend && npm run test
+
+# 推送前跑一遍 CI 同等检查（后端 lint/测试、前端 lint/格式/测试/构建、pre-commit）
+make ci
+```
+
+`make install` 和 `scripts/setup.sh` 会安装 Git `pre-push` 钩子，之后 `git push` 会自动执行上述检查。钩子使用本机 Python 3.11（与 CI 一致），依赖放在 `.cache/ci-venv`，不影响日常开发用的 `backend/venv`。
+
+本地 Node 主版本不是 22 时，`make ci` 会提示版本差异。需要跳过钩子时：
+
+```bash
+SKIP_LOCAL_CI=1 git push
 ```
 
 ---

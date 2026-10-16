@@ -1,0 +1,5 @@
+#!/bin/sh
+# 推送前运行与 GitHub Actions 相同的检查。紧急绕过：SKIP_LOCAL_CI=1 git push
+
+root=$(git rev-parse --show-toplevel) || exit 1
+exec "$root/scripts/ci-local.sh"

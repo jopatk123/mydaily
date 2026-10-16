@@ -43,6 +43,10 @@ npm install
 cd ..
 
 echo ""
+echo -e "${GREEN}Installing git pre-push hook...${NC}"
+make install-hooks
+
+echo ""
 echo -e "${GREEN}Setup complete!${NC}"
 echo ""
 echo "You can now start the development servers:"
